@@ -3,6 +3,8 @@
 A terminal UI for Jenkins. Browse views, jobs, and builds; watch a build's console
 output and stage timeline live; trigger a new build or abort a running one.
 
+![jenkui demo](docs/demo.gif)
+
 Needs [Bun](https://bun.sh) 1.3.0 or later on your PATH. The package runs its
 TypeScript source directly, so Bun is also its runtime.
 
