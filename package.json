@@ -29,6 +29,14 @@
     "opentui",
     "ci"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wiscaksono/jenkui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wiscaksono/jenkui/issues"
+  },
+  "homepage": "https://github.com/wiscaksono/jenkui#readme",
   "devDependencies": {
     "@types/bun": "1.3.14",
     "typescript": "^5.9.3"

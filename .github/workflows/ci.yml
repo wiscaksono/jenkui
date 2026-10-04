@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      # Smoke-build so broken imports fail here, not at publish time.
+      # OpenTUI stays external (its native lib/worker are resolved at runtime).
+      - run: bun build src/index.tsx --target=bun --outdir /tmp/jenkui-build --external @opentui/core --external @opentui/react

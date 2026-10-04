@@ -1,24 +1,53 @@
 # jenkui
 
-A terminal UI for Jenkins: browse organizations → projects → builds → stage view,
-stream console output, trigger builds, and abort running ones.
+A terminal UI for Jenkins. Browse views, jobs, and builds; watch a build's console
+output and stage timeline live; trigger a new build or abort a running one.
 
-Requires [Bun](https://bun.sh/) 1.3.0 or later.
+Needs [Bun](https://bun.sh) 1.3.0 or later on your PATH. The package runs its
+TypeScript source directly, so Bun is also its runtime.
 
-## Setup
+## Install
 
 ```bash
-bun install
+npm install -g jenkui
+# or
+bun install -g jenkui
 ```
 
-Create the config directory and add your Jenkins profiles:
+Then run it:
+
+```bash
+jenkui
+```
+
+On first run there is no config, so the header shows a credentials error. Create
+the config file next.
+
+### Point it at Jenkins
+
+Make a config directory and copy the example:
 
 ```bash
 mkdir -p ~/.config/jenkui
-cp config.example.json ~/.config/jenkui/config.json
+cp "$(npm root -g)/jenkui/config.example.json" ~/.config/jenkui/config.json
 ```
 
-`config.json`:
+Or write `~/.config/jenkui/config.json` yourself. One profile is enough to start:
+
+```json
+{
+  "profiles": {
+    "default": {
+      "url": "https://jenkins.example.com",
+      "user": "your_user",
+      "token": "your_api_token"
+    }
+  }
+}
+```
+
+Add more profiles when you have a second server. `defaultProfile` picks which one
+loads first, and `p` switches at runtime:
 
 ```json
 {
@@ -33,26 +62,21 @@ cp config.example.json ~/.config/jenkui/config.json
 }
 ```
 
-- `pollIntervalMs` — live console/stage update interval for a running build.
-- `autoRefreshMs` — background refresh of the list and queue.
-- `pageSize` — builds fetched per page (pagination grows as you scroll).
+| Option | Meaning |
+| --- | --- |
+| `pollIntervalMs` | How often the console and stage view update while a build runs |
+| `autoRefreshMs` | How often the list and queue refresh in the background |
+| `pageSize` | Builds fetched per page; more load as you scroll |
 
-If `profiles` is absent, a single top-level `"jenkins"` object is used as one
-profile. Switch profiles at runtime with `p`; the active one shows as a colored
-badge in the header.
+Get an API token from Jenkins under **User → Configure → API Token**.
 
-Grab an API token from Jenkins: **User → Configure → API Token**.
+If you leave out `profiles`, a single top-level `"jenkins"` object still works as
+one profile. `JENKINS_URL`, `JENKINS_USER`, and `JENKINS_TOKEN` override the file
+when set. Triggering and aborting builds needs an account that can build the jobs.
 
-`JENKINS_URL` / `JENKINS_USER` / `JENKINS_TOKEN` environment variables override the
-config file when set (handy for CI). If credentials are missing or invalid, the
-app shows the error instead of data.
+### Colors
 
-Writing to Jenkins (trigger/abort) needs an account allowed to build the jobs.
-
-## Themes
-
-Colors follow a named preset, with optional per-color overrides, in
-`~/.config/jenkui/theme.json`:
+Pick a named theme and override any color in `~/.config/jenkui/theme.json`:
 
 ```json
 { "theme": "tokyonight" }
@@ -62,11 +86,11 @@ Colors follow a named preset, with optional per-color overrides, in
 { "theme": "tokyonight", "colors": { "accent": "#FF00FF" } }
 ```
 
-Presets: `ajsdb` (default), `tokyonight`, `catppuccin`, `dracula`, `gruvbox`,
-`nord`, `one-dark`, `rosepine`. See `theme.example.json`.
+Themes included: `ajsdb` (default), `tokyonight`, `catppuccin`, `dracula`,
+`gruvbox`, `nord`, `one-dark`, `rosepine`. See `theme.example.json`.
 
-Give each profile its own badge color (shown in the header); text color is
-picked automatically for contrast:
+Each profile can carry its own badge color for the header. jenkui picks the text
+color from the badge background so it stays readable:
 
 ```json
 {
@@ -75,67 +99,91 @@ picked automatically for contrast:
 }
 ```
 
-Config and theme are read once at startup, so restart the app after editing.
+The config and theme load once at startup. Restart jenkui after editing them.
 
-## Run
+## Keys
+
+| Key | Action |
+| --- | --- |
+| `j` `k` `↓` `↑` | move the selection |
+| `h` `←` | go back one level |
+| `l` `→` | open the selected item |
+| `enter` | open the selected item |
+| `/` | search (fuzzy, per level, kept when you return); in the stage view it highlights log lines |
+| `esc` | back, leave search, or close a dialog |
+| `f` | cycle the status filter: all, failed, running, success |
+| `b` | start a new build of the selected job (asks to confirm) |
+| `x` | abort the running build (asks to confirm) |
+| `o` | open the console or job in your browser |
+| `y` | copy the build or job link |
+| `.` | view the build queue |
+| `p` | switch Jenkins profile |
+| `A` | toggle auto-refresh |
+| `r` | refresh now |
+| `?` | show all shortcuts |
+| `` ` `` | toggle the debug console overlay |
+| `q` | quit |
+
+## How it maps to Jenkins
+
+Jenkins **views** become organizations (`POLARIS`, `ALCOR`, …). Each job in a view
+is a project; folders are expanded one level and the folder name shows on the row.
+Each build is a deployment. Jobs that no view lists go under `other`.
+
+The console streams through Jenkins' `progressiveText` endpoint. Stage durations
+and status refresh while a build runs, and Jenkins' masked-credential markers
+(`ha:////…`) are filtered out of the output.
+
+## Development
 
 ```bash
+bun install
 bun dev          # watch mode
 bun start        # run once
 bun test         # unit tests
 bun run typecheck
 ```
 
-## Keys
-
-| Key | Action |
-| --- | --- |
-| `j` / `k` `↓` / `↑` | move selection |
-| `h` / `←` | back one level |
-| `l` / `→` | open the selected item |
-| `enter` | open the selected item |
-| `/` | search (fuzzy; per-level, kept when you return). In stage view it highlights log lines |
-| `esc` | back / leave search / close dialog |
-| `f` | cycle status filter (all → failed → running → success) |
-| `b` | start a new build of the selected job (confirm dialog) |
-| `x` | abort the running build (confirm dialog) |
-| `o` | open the console/job in the browser |
-| `y` | copy the build/job link to the clipboard |
-| `.` | view the build queue |
-| `p` | switch Jenkins profile |
-| `A` | toggle auto-refresh |
-| `r` | refresh now |
-| `?` | keyboard shortcuts |
-| `` ` `` | toggle the debug console overlay |
-| `q` | quit |
-
-## Layout
+`src/` layout:
 
 ```
-src/
-  index.tsx            bootstrap: renderer + React root + debug console
-  app.tsx              root: wiring, data loading, keyboard dispatch
-  state/
-    store.ts           AppState + reducer
-    keymap.ts          pure key -> action mapping
-    views.ts           per-view header meta + breadcrumb
-  config/
-    index.ts           reads ~/.config/jenkui/{config,theme}.json + profiles
-    themes.ts          named color presets
-    theme.ts           colors/statusColor facade
-  api/jenkins.ts       Jenkins client (read + trigger/stop)
-  hooks/               data loading, selection resolution
-  components/          header, search bar, list, placeholder, dialogs
-  screens/             org, project, deploy, run (stage view)
-  utils/               pure helpers (format, log, search, spinner, stages, host, contrast)
-  types.ts             domain types
+index.tsx            bootstrap: renderer, React root, debug console
+app.tsx              wiring, data loading, keyboard dispatch
+state/               AppState + reducer, keymap, per-view meta
+config/              reads ~/.config/jenkui/{config,theme}.json, themes
+api/jenkins.ts       Jenkins client (read, trigger, stop)
+hooks/               data loading, selection resolution
+components/          header, search bar, list, dialogs
+screens/             org, project, deploy, run (stage view)
+utils/               format, log, search, spinner, stages, host, contrast
+types.ts             domain types
 ```
 
-The Jenkins hierarchy maps like this: Jenkins **views** become organizations
-(`POLARIS`, `ALCOR`, ...), each job inside a view is a project (folders are
-expanded one level and tagged on the row), and each build is a deployment. Jobs
-not listed by any view are grouped under `other`, so nothing silently disappears.
+## CI
 
-Console output is streamed with Jenkins' `progressiveText` endpoint; stage
-duration/status refresh live while a build runs, and masked-credential markers
-(`ha:////…`) are filtered out.
+`.github/workflows/ci.yml` runs typecheck, tests, and a bundle smoke build on
+every push to `main` and every pull request.
+
+`.github/workflows/release.yml` publishes to npm when you push a `v*` tag. It
+needs an `NPM_TOKEN` repository secret with publish access, and uses npm
+provenance (OIDC) so the release links back to the workflow run.
+
+```bash
+git tag v0.1.1 && git push origin v0.1.1
+```
+
+## Troubleshooting
+
+**`error: Missing Jenkins credentials`**: the config file is missing or the
+`user`/`token` fields are empty. Check `~/.config/jenkui/config.json`.
+
+**`Jenkins 401`**: wrong user or token. Generate a fresh token under
+**User → Configure → API Token**.
+
+**`Jenkins 403`**: the account can read jobs but not build them. Triggering and
+aborting need the build permission for those jobs.
+
+**Config changes do nothing**: the file is read at startup. Restart jenkui.
+
+**Nothing renders**: make sure the terminal is a real TTY and Bun 1.3.0+ is on
+your PATH (`bun --version`).
