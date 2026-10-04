@@ -1,0 +1,10 @@
+{
+  "theme": "tokyonight",
+  "colors": {
+    "accent": "#7AA2F7"
+  },
+  "profile": {
+    "dev": "#2E7D32",
+    "prod": "#B71C1C"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "defaultProfile": "dev",
+  "profiles": {
+    "dev": {
+      "url": "https://jenkins-dev.example.com",
+      "user": "your_user",
+      "token": "your_api_token"
+    },
+    "prod": {
+      "url": "https://jenkins-prod.example.com",
+      "user": "your_user",
+      "token": "your_api_token"
+    }
+  },
+  "pollIntervalMs": 2000,
+  "autoRefreshMs": 5000,
+  "pageSize": 100
+}
