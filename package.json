@@ -11,6 +11,7 @@
   "files": [
     "src",
     "README.md",
+    "LICENSE",
     "config.example.json",
     "theme.example.json"
   ],
