@@ -22,6 +22,15 @@ Then run it:
 jenkui
 ```
 
+Useful flags:
+
+```bash
+jenkui --help              # usage and keys
+jenkui --version           # print the version
+jenkui --profile prod      # start on a specific profile
+jenkui --profile list      # list configured profiles
+```
+
 On first run there is no config, so the header shows a credentials error. Create
 the config file next.
 
@@ -150,7 +159,8 @@ bun run typecheck
 `src/` layout:
 
 ```
-index.tsx            bootstrap: renderer, React root, debug console
+index.tsx            bootstrap: CLI parsing, renderer, React root, debug console
+cli.ts               argument parsing (help, version, profile)
 app.tsx              wiring, data loading, keyboard dispatch
 state/               AppState + reducer, keymap, per-view meta
 config/              reads ~/.config/jenkui/{config,theme}.json, themes

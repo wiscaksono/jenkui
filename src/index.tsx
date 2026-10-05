@@ -2,6 +2,51 @@
 import { createRoot } from "@opentui/react"
 import { ConsolePosition, createCliRenderer } from "@opentui/core"
 import { App } from "./app"
+import { config, setActiveProfile } from "./config"
+import { parseArgs, USAGE } from "./cli"
+import pkg from "../package.json"
+
+const VERSION = pkg.version
+
+function listProfiles(): void {
+  const names = Object.keys(config.profiles)
+  if (names.length === 0) {
+    console.log("No profiles configured. Create ~/.config/jenkui/config.json.")
+    return
+  }
+  console.log("Configured profiles:")
+  for (const name of names) {
+    const profile = config.profiles[name]!
+    const mark = name === config.defaultProfile ? " (default)" : ""
+    console.log(`  ${name}${mark}  ${profile.url}`)
+  }
+}
+
+const command = parseArgs(process.argv.slice(2))
+
+switch (command.kind) {
+  case "help":
+    console.log(USAGE)
+    process.exit(0)
+  case "version":
+    console.log(`jenkui ${VERSION}`)
+    process.exit(0)
+  case "listProfiles":
+    listProfiles()
+    process.exit(0)
+  case "error":
+    console.error(`jenkui: ${command.message}`)
+    console.error()
+    console.error(USAGE)
+    process.exit(1)
+}
+
+if (!process.stdout.isTTY) {
+  console.error("jenkui needs an interactive terminal.")
+  process.exit(1)
+}
+
+if (command.profile) setActiveProfile(command.profile)
 
 const renderer = await createCliRenderer({
   // Console overlay captures console.* and draws it above the UI. Nothing is
