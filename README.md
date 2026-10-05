@@ -5,8 +5,8 @@ output and stage timeline live; trigger a new build or abort a running one.
 
 ![jenkui demo](docs/demo.gif)
 
-Needs [Bun](https://bun.sh) 1.3.0 or later on your PATH. The package runs its
-TypeScript source directly, so Bun is also its runtime.
+Needs [Bun](https://bun.sh) 1.4.0 or later on your PATH. The package runs its
+bundled JavaScript through Bun, so Bun is also its runtime.
 
 ## Install
 
@@ -188,5 +188,5 @@ aborting need the build permission for those jobs.
 
 **Config changes do nothing**: the file is read at startup. Restart jenkui.
 
-**Nothing renders**: make sure the terminal is a real TTY and Bun 1.3.0+ is on
+**Nothing renders**: make sure the terminal is a real TTY and Bun 1.4.0+ is on
 your PATH (`bun --version`).
