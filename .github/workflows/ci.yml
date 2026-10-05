@@ -16,6 +16,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
-      # Smoke-build so broken imports fail here, not at publish time.
-      # OpenTUI stays external (its native lib/worker are resolved at runtime).
-      - run: bun build src/index.tsx --target=bun --outdir /tmp/jenkui-build --external @opentui/core --external @opentui/react
+      # Build the shipped bundle so broken imports fail here, not at publish time.
+      - run: bun run build

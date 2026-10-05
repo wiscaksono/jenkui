@@ -142,6 +142,7 @@ and status refresh while a build runs, and Jenkins' masked-credential markers
 bun install
 bun dev          # watch mode
 bun start        # run once
+bun run build    # bundle to dist/ (this is what npm ships)
 bun test         # unit tests
 bun run typecheck
 ```

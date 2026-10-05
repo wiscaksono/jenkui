@@ -1,15 +1,15 @@
 {
   "name": "jenkui",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A terminal UI for Jenkins: browse jobs, stream console output, trigger and abort builds.",
   "author": "Wisnu Wicaksono",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "jenkui": "./src/index.tsx"
+    "jenkui": "./dist/index.js"
   },
   "files": [
-    "src",
+    "dist",
     "README.md",
     "LICENSE",
     "config.example.json",
@@ -18,9 +18,10 @@
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
+    "build": "bun build src/index.tsx --target=bun --outdir dist --external @opentui/core --external @opentui/react",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "bun run typecheck && bun test"
+    "prepublishOnly": "bun run build && bun run typecheck && bun test"
   },
   "keywords": [
     "jenkins",
