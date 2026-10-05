@@ -22,7 +22,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
-      # prepublishOnly re-runs typecheck + test; publish the tag as-is.
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # OIDC trusted publishing: no token. setup-node's registry-url + the
+      # id-token permission let npm authenticate through GitHub's identity.
+      - run: npm publish --access public
