@@ -1,4 +1,4 @@
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 import type { ConfirmAction } from "../state/store"
 
 type ConfirmDialogProps = {
@@ -7,6 +7,7 @@ type ConfirmDialogProps = {
 }
 
 export function ConfirmDialog({ action, busy }: ConfirmDialogProps) {
+  const { colors } = useTheme()
   return (
     <box
       style={{
@@ -17,7 +18,7 @@ export function ConfirmDialog({ action, busy }: ConfirmDialogProps) {
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#000000",
+        backgroundColor: colors.overlay,
         opacity: 0.85,
       }}
     >
@@ -27,7 +28,7 @@ export function ConfirmDialog({ action, busy }: ConfirmDialogProps) {
         border
         borderStyle="rounded"
         borderColor={action.kind === "build" ? colors.accent : colors.failure}
-        style={{ flexDirection: "column", width: 54, paddingX: 2, paddingY: 1, backgroundColor: "#111122" }}
+        style={{ flexDirection: "column", width: 54, paddingX: 2, paddingY: 1, backgroundColor: colors.surface }}
       >
         <text fg={colors.muted}>{action.label}</text>
         <text fg={colors.faint}>{`profile: ${action.profile}`}</text>

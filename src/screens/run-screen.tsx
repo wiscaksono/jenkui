@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { colors, statusColor } from "../config/theme"
+import { useTheme } from "../config/theme"
 import { formatDuration } from "../utils/format"
 import { useSpinner } from "../hooks/use-spinner"
 import type { Deployment, Stage, StageStatus } from "../types"
@@ -42,6 +42,7 @@ function highlight(text: string, q: string): Segment[] {
 }
 
 export function RunScreen({ deployment, stages, log, query, logFocused }: RunScreenProps) {
+  const { colors, statusColor } = useTheme()
   const rows = stages
   const max = Math.max(...rows.map((r) => r.durationMs), 1)
   const q = query.trim().toLowerCase()
@@ -96,7 +97,7 @@ export function RunScreen({ deployment, stages, log, query, logFocused }: RunScr
                   flexBasis: 0,
                   minWidth: 0,
                   height: 1,
-                  backgroundColor: "#333333",
+                  backgroundColor: colors.selectionDim,
                 }}
               />
             </box>

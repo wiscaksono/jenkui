@@ -1,4 +1,4 @@
-import { colors, profileColor } from "../config/theme"
+import { useTheme } from "../config/theme"
 import { readableTextColor } from "../utils/contrast"
 
 type HeaderProps = {
@@ -9,10 +9,11 @@ type HeaderProps = {
 }
 
 export function Header({ title, breadcrumb, profile, status }: HeaderProps) {
+  const { colors, profileColor } = useTheme()
   const bg = profileColor(profile)
   return (
     <box style={{ flexDirection: "row", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
-      <ascii-font text={title} font="tiny" />
+      <ascii-font text={title} font="tiny" color={colors.foreground} />
       <text fg={colors.muted}>{breadcrumb}</text>
       {status ? <text fg={colors.faint}>{`· ${status}`}</text> : null}
       <box style={{ flexGrow: 1 }} />

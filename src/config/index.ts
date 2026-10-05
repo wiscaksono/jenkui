@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { THEMES, type ThemeColors } from "./themes"
+import { SYSTEM_COLORS, THEMES, isThemeName, type SelectedTheme, type ThemeColors, type ThemeMode } from "./themes"
 
 // User configuration lives in one directory, overridable via XDG_CONFIG_HOME:
 //   ~/.config/jenkui/config.json   (Jenkins profiles, tunables)
-//   ~/.config/jenkui/theme.json    (color overrides)
+//   ~/.config/jenkui/theme.json    (theme name, mode, color overrides)
 // Missing or invalid files fall back to defaults; they never crash the app.
 
 export const CONFIG_DIR = join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "jenkui")
@@ -39,12 +39,16 @@ export const DEFAULT_CONFIG: AppConfig = {
 }
 
 export type ThemeConfig = {
-  colors: ThemeColors
+  name: SelectedTheme
+  mode: ThemeMode | "system"
+  overrides: Partial<ThemeColors>
   profileColors: Record<string, string>
 }
 
 export const DEFAULT_THEME: ThemeConfig = {
-  colors: THEMES.ajsdb,
+  name: "ajsdb",
+  mode: "system",
+  overrides: {},
   profileColors: {},
 }
 
@@ -112,25 +116,48 @@ function loadConfig(): AppConfig {
   }
 }
 
-// Resolution order for colors: pick the named theme (default ajsdb), then apply
-// any explicit per-color overrides from theme.json on top.
+// Reads theme name, mode, and per-color overrides from theme.json. Colors are
+// not resolved here; resolveTheme() does that once a mode is known.
 function loadTheme(): ThemeConfig {
   const raw = readJson(join(CONFIG_DIR, "theme.json")) ?? {}
-  const name = str(raw.theme)
-  const base: ThemeColors = (name && THEMES[name as keyof typeof THEMES]) || THEMES.ajsdb
-  const colors = { ...base }
-  const overrides = (raw.colors as Record<string, unknown> | undefined) ?? {}
-  for (const key of Object.keys(colors) as Array<keyof ThemeColors>) {
-    const override = str(overrides[key])
-    if (override) colors[key] = override
+  const nameRaw = str(raw.theme)
+  const name: SelectedTheme = nameRaw && isThemeName(nameRaw) ? nameRaw : DEFAULT_THEME.name
+  const modeRaw = str(raw.mode)
+  const mode: ThemeConfig["mode"] =
+    modeRaw === "dark" || modeRaw === "light" || modeRaw === "system" ? modeRaw : DEFAULT_THEME.mode
+
+  const overrides: Partial<ThemeColors> = {}
+  const rawOverrides = (raw.colors as Record<string, unknown> | undefined) ?? {}
+  for (const [key, value] of Object.entries(rawOverrides)) {
+    const color = str(value)
+    if (color) overrides[key as keyof ThemeColors] = color
   }
+
   const profileRaw = (raw.profile as Record<string, unknown> | undefined) ?? {}
   const profileColors: Record<string, string> = {}
   for (const [name, value] of Object.entries(profileRaw)) {
     const color = str(value)
     if (color) profileColors[name] = color
   }
-  return { colors, profileColors }
+
+  return { name, mode, overrides, profileColors }
+}
+
+/**
+ * Picks the palette for a theme + detected terminal mode, then applies user
+ * overrides. The `system` theme ignores the mode and uses ANSI terminal colors.
+ */
+export function resolveTheme(theme: ThemeConfig, detectedMode: ThemeMode): ThemeColors {
+  const base =
+    theme.name === "system"
+      ? { ...SYSTEM_COLORS }
+      : { ...THEMES[theme.name][detectedMode] }
+  return { ...base, ...theme.overrides }
+}
+
+/** The mode to use, or null to wait for terminal detection. */
+export function configuredMode(theme: ThemeConfig): ThemeMode | null {
+  return theme.mode === "system" ? null : theme.mode
 }
 
 export const config: AppConfig = loadConfig()

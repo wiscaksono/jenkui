@@ -1,4 +1,4 @@
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 
 type PlaceholderProps = {
   text: string
@@ -6,6 +6,7 @@ type PlaceholderProps = {
 }
 
 export function Placeholder({ text, tone = "muted" }: PlaceholderProps) {
+  const { colors } = useTheme()
   return (
     <box
       style={{

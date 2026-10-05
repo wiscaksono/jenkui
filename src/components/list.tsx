@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { colors } from "../config/theme"
-import { statusColor } from "../config/theme"
+import { useTheme } from "../config/theme"
 import { useSpinner } from "../hooks/use-spinner"
 import { STATUS_META } from "../utils/format"
 import type { StageStatus } from "../types"
@@ -27,6 +26,7 @@ type ListProps = {
 // so filtering and selection never drift apart. Keyboard is handled globally
 // (see state/keymap.ts), which keeps a single source of truth for key actions.
 export function List({ items, selectedIndex, focused, onChange, onSubmit }: ListProps) {
+  const { colors, statusColor } = useTheme()
   const spinner = useSpinner(items.some((i) => i.status === "RUNNING"))
   const scrollRef = useRef<ScrollBoxRenderable>(null)
 
@@ -61,7 +61,7 @@ export function List({ items, selectedIndex, focused, onChange, onSubmit }: List
               flexDirection: "row",
               gap: 1,
               paddingX: 1,
-              backgroundColor: current ? (focused ? "#2A2A44" : "#1E1E30") : "transparent",
+              backgroundColor: current ? (focused ? colors.selection : colors.selectionDim) : "transparent",
             }}
             onMouseDown={() => onChange(index)}
             onMouseUp={() => onSubmit(index)}

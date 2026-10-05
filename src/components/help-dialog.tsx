@@ -1,4 +1,4 @@
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 
 const SHORTCUTS: Array<[string, string]> = [
   ["j / k", "move selection down / up"],
@@ -21,6 +21,7 @@ const SHORTCUTS: Array<[string, string]> = [
 ]
 
 export function HelpDialog() {
+  const { colors } = useTheme()
   return (
     <box
       style={{
@@ -31,7 +32,7 @@ export function HelpDialog() {
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#000000",
+        backgroundColor: colors.overlay,
         opacity: 0.85,
       }}
     >
@@ -40,17 +41,18 @@ export function HelpDialog() {
         titleAlignment="center"
         border
         borderStyle="rounded"
+        borderColor={colors.accent}
         style={{
           flexDirection: "column",
           width: 52,
           paddingX: 2,
           paddingY: 1,
-          backgroundColor: "#111122",
+          backgroundColor: colors.surface,
         }}
       >
         {SHORTCUTS.map(([key, desc]) => (
           <box key={key} style={{ flexDirection: "row", gap: 2 }}>
-            <text width={10}>
+            <text fg={colors.accent} width={10}>
               {key}
             </text>
             <text fg={colors.muted}>{desc}</text>

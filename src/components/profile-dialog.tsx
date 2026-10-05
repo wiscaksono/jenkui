@@ -1,4 +1,4 @@
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 
 type ProfileDialogProps = {
   names: string[]
@@ -7,6 +7,7 @@ type ProfileDialogProps = {
 }
 
 export function ProfileDialog({ names, active, selectedIndex }: ProfileDialogProps) {
+  const { colors } = useTheme()
   return (
     <box
       style={{
@@ -17,7 +18,7 @@ export function ProfileDialog({ names, active, selectedIndex }: ProfileDialogPro
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#000000",
+        backgroundColor: colors.overlay,
         opacity: 0.85,
       }}
     >
@@ -27,7 +28,7 @@ export function ProfileDialog({ names, active, selectedIndex }: ProfileDialogPro
         border
         borderStyle="rounded"
         borderColor={colors.accent}
-        style={{ flexDirection: "column", width: 40, paddingX: 2, paddingY: 1, backgroundColor: "#111122" }}
+        style={{ flexDirection: "column", width: 40, paddingX: 2, paddingY: 1, backgroundColor: colors.surface }}
       >
         {names.map((name, index) => {
           const current = index === selectedIndex
@@ -39,7 +40,7 @@ export function ProfileDialog({ names, active, selectedIndex }: ProfileDialogPro
                 flexDirection: "row",
                 justifyContent: "space-between",
                 paddingX: 1,
-                backgroundColor: current ? "#2A2A44" : "transparent",
+                backgroundColor: current ? colors.selection : "transparent",
               }}
             >
               <text fg={current ? colors.accent : colors.muted}>{name}</text>

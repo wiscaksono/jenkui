@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useRef } from "react"
 import type { InputRenderable } from "@opentui/core"
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 
 type SearchBarProps = {
   placeholder: string
@@ -13,6 +13,7 @@ export const SearchBar = forwardRef<InputRenderable, SearchBarProps>(function Se
   { placeholder, value, focused, onValueChange },
   ref,
 ) {
+  const { colors } = useTheme()
   const innerRef = useRef<InputRenderable>(null)
 
   const setRef = (node: InputRenderable | null) => {

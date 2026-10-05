@@ -1,4 +1,4 @@
-import { colors } from "../config/theme"
+import { useTheme } from "../config/theme"
 import type { QueueItem } from "../api/jenkins"
 
 type QueueDialogProps = {
@@ -8,6 +8,7 @@ type QueueDialogProps = {
 }
 
 export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps) {
+  const { colors } = useTheme()
   return (
     <box
       style={{
@@ -18,7 +19,7 @@ export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps)
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#000000",
+        backgroundColor: colors.overlay,
         opacity: 0.85,
       }}
     >
@@ -28,7 +29,7 @@ export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps)
         border
         borderStyle="rounded"
         borderColor={colors.accent}
-        style={{ flexDirection: "column", width: 64, paddingX: 2, paddingY: 1, backgroundColor: "#111122" }}
+        style={{ flexDirection: "column", width: 64, paddingX: 2, paddingY: 1, backgroundColor: colors.surface }}
       >
         {loading && items.length === 0 ? <text fg={colors.faint}>Loading queue…</text> : null}
         {!loading && items.length === 0 ? <text fg={colors.faint}>Queue is empty</text> : null}
@@ -42,7 +43,7 @@ export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps)
                 justifyContent: "space-between",
                 gap: 2,
                 paddingX: 1,
-                backgroundColor: current ? "#2A2A44" : "transparent",
+                backgroundColor: current ? colors.selection : "transparent",
               }}
             >
               <text fg={current ? colors.accent : colors.muted} wrapMode="none">

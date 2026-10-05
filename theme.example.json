@@ -1,5 +1,6 @@
 {
   "theme": "tokyonight",
+  "mode": "system",
   "colors": {
     "accent": "#7AA2F7"
   },

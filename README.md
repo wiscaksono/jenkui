@@ -87,18 +87,31 @@ when set. Triggering and aborting builds needs an account that can build the job
 
 ### Colors
 
-Pick a named theme and override any color in `~/.config/jenkui/theme.json`:
+Pick a named theme in `~/.config/jenkui/theme.json`:
 
 ```json
-{ "theme": "tokyonight" }
+{ "theme": "tokyonight", "mode": "system" }
 ```
+
+- `theme`: a preset name, or `system` to use the terminal's own ANSI colors.
+- `mode`: `dark`, `light`, or `system` (default). `system` follows the terminal's
+  light/dark report, so the palette switches when your terminal does.
+- `colors`: optional per-token overrides applied on top of the preset.
+
+Every preset ships a dark and a light palette. Themes included: `ajsdb`
+(default), `tokyonight`, `catppuccin`, `dracula`, `gruvbox`, `nord`, `one-dark`,
+`rosepine`. See `theme.example.json`.
 
 ```json
-{ "theme": "tokyonight", "colors": { "accent": "#FF00FF" } }
+{ "theme": "tokyonight", "mode": "dark", "colors": { "accent": "#FF00FF" } }
 ```
 
-Themes included: `ajsdb` (default), `tokyonight`, `catppuccin`, `dracula`,
-`gruvbox`, `nord`, `one-dark`, `rosepine`. See `theme.example.json`.
+Use `theme: "system"` to inherit the terminal palette, so jenkui matches whatever
+scheme you already run:
+
+```json
+{ "theme": "system" }
+```
 
 Each profile can carry its own badge color for the header. jenkui picks the text
 color from the badge background so it stays readable:
