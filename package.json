@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "jenkui": "./dist/index.js"
+    "jenkui": "dist/index.js"
   },
   "files": [
     "dist",
