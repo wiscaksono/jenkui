@@ -98,9 +98,9 @@ Pick a named theme in `~/.config/jenkui/theme.json`:
   light/dark report, so the palette switches when your terminal does.
 - `colors`: optional per-token overrides applied on top of the preset.
 
-Every preset ships a dark and a light palette. Themes included: `ajsdb`
-(default), `tokyonight`, `catppuccin`, `dracula`, `gruvbox`, `nord`, `one-dark`,
-`rosepine`. See `theme.example.json`.
+Every preset ships a dark and a light palette. Themes included: `default`,
+`tokyonight`, `catppuccin`, `dracula`, `gruvbox`, `nord`, `one-dark`, `rosepine`.
+See `theme.example.json`. With no `theme.json` at all, jenkui starts on `system`.
 
 ```json
 { "theme": "tokyonight", "mode": "dark", "colors": { "accent": "#FF00FF" } }

@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { SYSTEM_COLORS, THEMES, isThemeName, type SelectedTheme, type ThemeColors, type ThemeMode } from "./themes"
+import {
+  SYSTEM_COLORS,
+  THEMES,
+  isThemeName,
+  type SelectedTheme,
+  type ThemeColors,
+  type ThemeMode,
+} from "./themes"
 
 // User configuration lives in one directory, overridable via XDG_CONFIG_HOME:
 //   ~/.config/jenkui/config.json   (Jenkins profiles, tunables)
@@ -46,7 +53,7 @@ export type ThemeConfig = {
 }
 
 export const DEFAULT_THEME: ThemeConfig = {
-  name: "ajsdb",
+  name: "system",
   mode: "system",
   overrides: {},
   profileColors: {},

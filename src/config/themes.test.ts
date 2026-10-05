@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { THEMES, THEME_NAMES, SYSTEM_COLORS } from "./themes"
-import { resolveTheme, type ThemeConfig } from "./index"
+import { DEFAULT_THEME, resolveTheme, type ThemeConfig } from "./index"
 
 const HEX = /^#[0-9A-Fa-f]{6}$/
 
@@ -15,9 +15,13 @@ describe("themes", () => {
   })
 
   test("includes the built-in default and known presets", () => {
-    expect(THEME_NAMES).toContain("ajsdb")
+    expect(THEME_NAMES).toContain("default")
     expect(THEME_NAMES).toContain("tokyonight")
     expect(THEME_NAMES).toContain("dracula")
+  })
+
+  test("the app defaults to the system theme", () => {
+    expect(DEFAULT_THEME.name).toBe("system")
   })
 
   test("brand presets keep their signature accent", () => {

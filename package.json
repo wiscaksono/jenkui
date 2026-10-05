@@ -1,6 +1,6 @@
 {
   "name": "jenkui",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A terminal UI for Jenkins: browse jobs, stream console output, trigger and abort builds.",
   "author": "Wisnu Wicaksono",
   "license": "MIT",

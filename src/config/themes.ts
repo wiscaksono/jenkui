@@ -35,7 +35,7 @@ export type Theme = {
 }
 
 export const THEME_NAMES = [
-  "ajsdb",
+  "default",
   "tokyonight",
   "catppuccin",
   "dracula",
@@ -50,7 +50,7 @@ export type ThemeName = (typeof THEME_NAMES)[number]
 export type SelectedTheme = ThemeName | "system"
 
 export const THEMES: Record<ThemeName, Theme> = {
-  ajsdb: {
+  default: {
     dark: {
       foreground: "#E6E6E6",
       background: "#101014",
