@@ -157,7 +157,7 @@ function loadTheme(): ThemeConfig {
 export function resolveTheme(theme: ThemeConfig, detectedMode: ThemeMode): ThemeColors {
   const base =
     theme.name === "system"
-      ? { ...SYSTEM_COLORS }
+      ? { ...SYSTEM_COLORS[detectedMode] }
       : { ...THEMES[theme.name][detectedMode] }
   return { ...base, ...theme.overrides }
 }

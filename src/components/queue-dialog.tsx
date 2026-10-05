@@ -46,10 +46,10 @@ export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps)
                 backgroundColor: current ? colors.selection : "transparent",
               }}
             >
-              <text fg={current ? colors.accent : colors.muted} wrapMode="none">
+              <text fg={current ? colors.selectionText : colors.muted} wrapMode="none">
                 {item.name}
               </text>
-              <text fg={colors.faint} wrapMode="none">
+              <text fg={current ? colors.selectionText : colors.faint} wrapMode="none">
                 {item.buildNumber ? `#${item.buildNumber}` : (item.why ?? "waiting")}
               </text>
             </box>

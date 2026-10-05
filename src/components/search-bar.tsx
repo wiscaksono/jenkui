@@ -40,7 +40,21 @@ export const SearchBar = forwardRef<InputRenderable, SearchBarProps>(function Se
       }}
     >
       <text fg={colors.muted}>{"\u{f002}"}</text>
-      <input ref={setRef} value={value} placeholder={placeholder} onInput={onValueChange} style={{ flexGrow: 1 }} />
+      <input
+        ref={setRef}
+        value={value}
+        placeholder={placeholder}
+        onInput={onValueChange}
+        style={{ flexGrow: 1 }}
+        // OpenTUI defaults to hardcoded white text and a gray placeholder, which
+        // vanish on a light background. Derive them from the active palette.
+        textColor={colors.foreground}
+        focusedTextColor={colors.foreground}
+        placeholderColor={colors.faint}
+        cursorColor={colors.accent}
+        selectionBg={colors.selection}
+        selectionFg={colors.selectionText}
+      />
     </box>
   )
 })

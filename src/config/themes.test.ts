@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { RGBA } from "@opentui/core"
 import { THEMES, THEME_NAMES, SYSTEM_COLORS } from "./themes"
 import { DEFAULT_THEME, resolveTheme, type ThemeConfig } from "./index"
 
@@ -30,9 +31,17 @@ describe("themes", () => {
   })
 
   test("system theme uses terminal defaults", () => {
-    expect((SYSTEM_COLORS.foreground as { intent: string }).intent).toBe("default")
-    expect((SYSTEM_COLORS.background as { intent: string }).intent).toBe("default")
-    expect((SYSTEM_COLORS.accent as { intent: string }).intent).toBe("indexed")
+    expect((SYSTEM_COLORS.dark.foreground as { intent: string }).intent).toBe("default")
+    expect((SYSTEM_COLORS.light.background as { intent: string }).intent).toBe("default")
+    expect((SYSTEM_COLORS.dark.accent as { intent: string }).intent).toBe("indexed")
+  })
+
+  test("system theme tunes accent/status per mode so it stays readable", () => {
+    // Light backgrounds need the normal (not bright) ANSI slots.
+    expect((SYSTEM_COLORS.dark.accent as RGBA).slot).toBe(11)
+    expect((SYSTEM_COLORS.light.accent as RGBA).slot).toBe(3)
+    expect((SYSTEM_COLORS.dark.muted as RGBA).slot).toBe(7)
+    expect((SYSTEM_COLORS.light.muted as RGBA).slot).toBe(8)
   })
 })
 
@@ -51,9 +60,11 @@ describe("resolveTheme", () => {
     expect(resolveTheme(themed, "dark").success).toBe(THEMES.tokyonight.dark.success)
   })
 
-  test("system theme ignores the mode and defers to the terminal", () => {
+  test("system theme follows the detected mode for accent", () => {
     const system: ThemeConfig = { ...base, name: "system" }
-    expect(resolveTheme(system, "dark").accent).toBe(SYSTEM_COLORS.accent)
-    expect(resolveTheme(system, "light").foreground).toBe(SYSTEM_COLORS.foreground)
+    expect(resolveTheme(system, "dark").accent).toBe(SYSTEM_COLORS.dark.accent)
+    expect(resolveTheme(system, "light").accent).toBe(SYSTEM_COLORS.light.accent)
+    // Foreground still defers to the terminal in both modes.
+    expect(resolveTheme(system, "light").foreground).toBe(SYSTEM_COLORS.light.foreground)
   })
 })

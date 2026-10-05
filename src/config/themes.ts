@@ -15,8 +15,10 @@ export type ThemeColors = {
   running: ThemeColor
   skipped: ThemeColor
   pending: ThemeColor
-  /** Background of the highlighted row when the list has focus. */
+  /** Background of the highlighted row while the list has focus. */
   selection: ThemeColor
+  /** Text color on a selected row; must contrast with `selection`. */
+  selectionText: ThemeColor
   /** Dimmer variant used when the list is unfocused. */
   selectionDim: ThemeColor
   /** Modal backdrop fill. */
@@ -62,7 +64,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#FFD75F",
       skipped: "#555555",
       pending: "#7A8899",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#FFFF00",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -78,7 +81,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#B8860B",
       skipped: "#B0B0B0",
       pending: "#7C8A99",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#8A6D00",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -96,7 +100,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#E0AF68",
       skipped: "#414868",
       pending: "#6D7A9C",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#7AA2F7",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -112,7 +117,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#8C6C3E",
       skipped: "#B8BDD6",
       pending: "#9AA5CE",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#2E7DE9",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -130,7 +136,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#F9E2AF",
       skipped: "#45475A",
       pending: "#7F849C",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#89B4FA",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -146,7 +153,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#DF8E1D",
       skipped: "#BCC0CC",
       pending: "#8C8FA1",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#1E66F5",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -164,7 +172,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#F1FA8C",
       skipped: "#44475A",
       pending: "#8B94B8",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#BD93F9",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -180,7 +189,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#B08900",
       skipped: "#D4D4DC",
       pending: "#7C86AD",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#7C4FC4",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -198,7 +208,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#FABD2F",
       skipped: "#504945",
       pending: "#A89984",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#FABD2F",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -214,7 +225,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#B57614",
       skipped: "#D5C4A1",
       pending: "#7C6F64",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#B57614",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -232,7 +244,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#EBCB8B",
       skipped: "#434C5E",
       pending: "#7A8AA0",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#88C0D0",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -248,7 +261,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#B98900",
       skipped: "#D8DEE9",
       pending: "#7A8AA0",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#5E81AC",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -266,7 +280,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#E5C07B",
       skipped: "#3E4451",
       pending: "#828997",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#61AFEF",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -282,7 +297,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#C18401",
       skipped: "#D6D7DA",
       pending: "#8C8F97",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#4078F2",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -300,7 +316,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#F6C177",
       skipped: "#393552",
       pending: "#8079A0",
-      selection: "#2A2A44",
+      selection: "#1E1E30",
+      selectionText: "#C4A7E7",
       selectionDim: "#1E1E30",
       overlay: "#000000",
       surface: "#111122",
@@ -316,7 +333,8 @@ export const THEMES: Record<ThemeName, Theme> = {
       running: "#EA9D34",
       skipped: "#DFDAD9",
       pending: "#8F8A9E",
-      selection: "#D5D8EE",
+      selection: "#E7E8F2",
+      selectionText: "#907AA9",
       selectionDim: "#E7E8F2",
       overlay: "#FFFFFF",
       surface: "#FFFFFF",
@@ -324,23 +342,47 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
 }
 
-// Not a real palette: the terminal's own ANSI colors. Foreground/background use
-// the terminal defaults, so the app follows whatever scheme the user runs.
-export const SYSTEM_COLORS: ThemeColors = {
-  foreground: RGBA.defaultForeground(),
-  background: RGBA.defaultBackground(),
-  accent: RGBA.fromIndex(11), // bright yellow
-  muted: RGBA.fromIndex(8), // bright black
-  faint: RGBA.fromIndex(8),
-  success: RGBA.fromIndex(10), // bright green
-  failure: RGBA.fromIndex(9), // bright red
-  running: RGBA.fromIndex(11),
-  skipped: RGBA.fromIndex(0), // black
-  pending: RGBA.fromIndex(8),
-  selection: RGBA.fromIndex(4), // blue
-  selectionDim: RGBA.fromIndex(8),
-  overlay: RGBA.defaultBackground(),
-  surface: RGBA.defaultBackground(),
+// Colors the terminal reports through OSC queries. When present, the `system`
+// theme is built from these concrete hex values instead of intent colors, since
+// OpenTUI falls back to its own black/white when a terminal does not resolve an
+// intent. `palette` holds the 16 ANSI slots (entries may be empty strings).
+export type TerminalPaletteOverride = {
+  foreground: string
+  background: string
+  palette: string[]
+}
+
+// The `system` palette. Without `override` it uses intent colors that follow the
+// terminal when it resolves them; with `override` it uses the terminal's real
+// colors, so the app background and foreground are the terminal's own. Either
+// way the accent/status slots pick normal ANSI colors in light mode and bright
+// ones in dark mode, and selection falls back to slot 8 until the ThemeProvider
+// swaps in the terminal's own selection color (OSC 17/19).
+export function systemColors(mode: ThemeMode, override?: TerminalPaletteOverride): ThemeColors {
+  const light = mode === "light"
+  const slot = (index: number): ThemeColor => override?.palette[index] || RGBA.fromIndex(index)
+  return {
+    foreground: override?.foreground || RGBA.defaultForeground(),
+    background: override?.background || RGBA.defaultBackground(),
+    accent: slot(light ? 3 : 11), // normal vs bright yellow
+    muted: slot(light ? 8 : 7), // readable gray on a light/dark background
+    faint: slot(8), // bright black (dim)
+    success: slot(light ? 2 : 10), // normal vs bright green
+    failure: slot(light ? 1 : 9), // normal vs bright red
+    running: slot(light ? 3 : 11),
+    skipped: slot(8),
+    pending: slot(8),
+    selection: slot(8),
+    selectionText: override?.foreground || RGBA.defaultForeground(),
+    selectionDim: slot(8),
+    overlay: override?.background || RGBA.defaultBackground(),
+    surface: override?.background || RGBA.defaultBackground(),
+  }
+}
+
+export const SYSTEM_COLORS: Record<ThemeMode, ThemeColors> = {
+  dark: systemColors("dark"),
+  light: systemColors("light"),
 }
 
 export function isThemeName(name: string): name is SelectedTheme {

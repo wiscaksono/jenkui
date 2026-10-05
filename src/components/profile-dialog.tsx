@@ -43,8 +43,8 @@ export function ProfileDialog({ names, active, selectedIndex }: ProfileDialogPro
                 backgroundColor: current ? colors.selection : "transparent",
               }}
             >
-              <text fg={current ? colors.accent : colors.muted}>{name}</text>
-              {isActive ? <text fg={colors.success}>● active</text> : null}
+              <text fg={current ? colors.selectionText : colors.muted}>{name}</text>
+              {isActive ? <text fg={current ? colors.selectionText : colors.success}>● active</text> : null}
             </box>
           )
         })}

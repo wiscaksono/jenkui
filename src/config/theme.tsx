@@ -1,8 +1,9 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
-import { CliRenderEvents } from "@opentui/core"
+import { CliRenderEvents, RGBA } from "@opentui/core"
 import { useRenderer } from "@opentui/react"
 import { useEffect } from "react"
 import { configuredMode, resolveTheme, themeConfig } from "./index"
+import { systemColors } from "./themes"
 import type { ThemeColor, ThemeColors, ThemeMode } from "./themes"
 import type { StageStatus } from "../types"
 
@@ -12,12 +13,59 @@ export type Theme = {
   profileColor: (name: string) => string
 }
 
+// Concrete colors reported by the terminal via OSC queries, or null when the
+// terminal does not answer (e.g. tmux, plain TERM). Only the `system` theme uses
+// these; named themes keep their hand-picked palette.
+export type TerminalPalette = {
+  foreground: string
+  background: string
+  palette: string[]
+  highlightBackground: string | null
+  highlightForeground: string | null
+}
+
+// Asks the terminal for its real colors (fg/bg, the 16 ANSI slots, and its own
+// selection colors). Guessing with intent colors is unreliable because OpenTUI
+// falls back to its own black/white when the terminal does not resolve them, so
+// the `system` theme prefers these answers and only falls back when missing.
+function useTerminalPalette(enabled: boolean, mode: ThemeMode): TerminalPalette | null {
+  const renderer = useRenderer()
+  const [palette, setPalette] = useState<TerminalPalette | null>(null)
+
+  useEffect(() => {
+    if (!enabled) {
+      setPalette(null)
+      return
+    }
+    let active = true
+    void renderer
+      .getPalette({ timeout: 1000 })
+      .then((result) => {
+        if (!active || !result.defaultForeground || !result.defaultBackground) return
+        setPalette({
+          foreground: result.defaultForeground,
+          background: result.defaultBackground,
+          palette: result.palette.slice(0, 16).map((color) => color ?? ""),
+          highlightBackground: result.highlightBackground,
+          highlightForeground: result.highlightForeground,
+        })
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [renderer, enabled, mode])
+
+  return palette
+}
+
 // Detects the terminal mode through OpenTUI (Mode 2031 + fallback), then keeps
 // the palette in sync with live mode changes when the config says "system".
 function useThemeValue(): ThemeColors {
   const renderer = useRenderer()
   const fixed = configuredMode(themeConfig)
   const [mode, setMode] = useState<ThemeMode>(fixed ?? "dark")
+  const terminalPalette = useTerminalPalette(themeConfig.name === "system", mode)
 
   useEffect(() => {
     if (fixed) {
@@ -37,7 +85,22 @@ function useThemeValue(): ThemeColors {
     }
   }, [renderer, fixed])
 
-  return useMemo(() => resolveTheme(themeConfig, mode), [mode])
+  return useMemo(() => {
+    // With real terminal colors, build the whole system palette from them so the
+    // background and foreground are the terminal's own; otherwise fall back to
+    // intent colors that follow the terminal when it resolves them.
+    const base =
+      terminalPalette && themeConfig.name === "system"
+        ? systemColors(mode, terminalPalette)
+        : resolveTheme(themeConfig, mode)
+    if (terminalPalette?.highlightBackground) {
+      base.selection = RGBA.fromHex(terminalPalette.highlightBackground)
+      if (terminalPalette.highlightForeground) {
+        base.selectionText = RGBA.fromHex(terminalPalette.highlightForeground)
+      }
+    }
+    return base
+  }, [mode, terminalPalette])
 }
 
 const ThemeContext = createContext<Theme | null>(null)
