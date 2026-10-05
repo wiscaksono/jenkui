@@ -24,4 +24,5 @@ jobs:
       - run: bun test
       # OIDC trusted publishing: no token. setup-node's registry-url + the
       # id-token permission let npm authenticate through GitHub's identity.
-      - run: npm publish --access public
+      # --provenance is required for that OIDC path.
+      - run: npm publish --provenance --access public
