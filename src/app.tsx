@@ -1,7 +1,9 @@
 import { useKeyboard, useRenderer } from "@opentui/react"
-import { useCallback, useEffect, useReducer, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { Header } from "./components/header"
 import { HelpDialog } from "./components/help-dialog"
+import { NoticeBar } from "./components/notice-bar"
+import { ParamsDialog } from "./components/params-dialog"
 import { Placeholder } from "./components/placeholder"
 import { ProfileDialog } from "./components/profile-dialog"
 import { ConfirmDialog } from "./components/confirm-dialog"
@@ -9,23 +11,11 @@ import { QueueDialog } from "./components/queue-dialog"
 import { SearchBar } from "./components/search-bar"
 import { useOrganizations } from "./hooks/use-organizations"
 import { useSelection } from "./hooks/use-selection"
-import {
-  PAGE_SIZE,
-  buildConsoleUrl,
-  fetchBuildPage,
-  fetchBuildState,
-  fetchCommitCounts,
-  fetchQueue,
-  fetchStages,
-  fetchStageTemplate,
-  jobUrl,
-  pollLog,
-  stopBuild,
-  triggerBuild,
-  type QueueItem,
-} from "./api/jenkins"
-import { appendLog } from "./utils/log"
-import { mergeStages, seedStages } from "./utils/stages"
+import { useDeployments } from "./hooks/use-deployments"
+import { useRunStream } from "./hooks/use-run-stream"
+import { useQueue } from "./hooks/use-queue"
+import { useBuildActions } from "./hooks/use-build-actions"
+import { createJenkinsClient } from "./api/jenkins"
 import { copyToClipboard, openInBrowser } from "./utils/host"
 import { DeployScreen } from "./screens/deploy-screen"
 import { OrgScreen } from "./screens/org-screen"
@@ -33,143 +23,136 @@ import { ProjectScreen } from "./screens/project-screen"
 import { RunScreen } from "./screens/run-screen"
 import { initialState, reducer, type AppState } from "./state/store"
 import { keyToAction } from "./state/keymap"
-import { config, getActiveProfileName, profileNames, setActiveProfile } from "./config"
-import type { Deployment, Stage } from "./types"
+import { config, getActiveProfile, getActiveProfileName, profileNames, setActiveProfile } from "./config"
+import type { Deployment } from "./types"
 import { VIEW_META, breadcrumbFor } from "./state/views"
+import { resolveSelection } from "./hooks/resolve-selection"
 
-// Fetches a page of builds and their commit counts together, so the list is
-// complete on arrival and there is no lazy-loading race to reconcile.
-async function loadPage(jobPath: string, limit: number): Promise<Deployment[]> {
-  const builds = await fetchBuildPage(jobPath, limit)
-  const counts = await fetchCommitCounts(
-    jobPath,
-    builds.map((b) => b.number),
-  )
-  return builds.map((b) => ({ ...b, commits: counts.get(b.number) ?? 0 }))
-}
+const NO_DEPLOYMENTS: Record<string, Deployment[]> = {}
 
 const clamp = (index: number, length: number) => Math.max(0, Math.min(index, length - 1))
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const renderer = useRenderer()
-  const { view, mode, queries, helpOpen, profileOpen, profileIndex, confirm, busy, statusFilter, autoRefresh, queueOpen, queueIndex } = state
+  const {
+    view,
+    mode,
+    queries,
+    helpOpen,
+    profileOpen,
+    profileIndex,
+    confirm,
+    busy,
+    statusFilter,
+    autoRefresh,
+    queueOpen,
+    queueIndex,
+    params,
+    notice,
+  } = state
   const searching = mode === "search"
   const query = queries[view] ?? ""
 
-  const { organizations, loading, error, reload: reloadOrganizations } = useOrganizations()
-  const [deploymentsByJob, setDeploymentsByJob] = useState<Record<string, Deployment[]>>({})
-  const [stages, setStages] = useState<Stage[]>([])
-  const [log, setLog] = useState<string[]>([])
-  const [runLoading, setRunLoading] = useState(false)
-  const [runError, setRunError] = useState<string | null>(null)
-  const [reloadToken, setReloadToken] = useState(0)
   const [activeProfile, setActiveProfileState] = useState(getActiveProfileName())
-  const [queueItems, setQueueItems] = useState<QueueItem[]>([])
-  const [queueLoading, setQueueLoading] = useState(false)
   const profiles = profileNames()
+  // One client per profile. It owns the commit-count cache, so switching
+  // profiles cannot leak build data between servers.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeProfile is the profile-switch trigger
+  const api = useMemo(() => createJenkinsClient(getActiveProfile()), [activeProfile])
+  const [reloadToken, setReloadToken] = useState(0)
 
-  const { orgList, org, orgIndex, projectList, project, projectIndex, deployList, deployment, deploymentIndex } =
-    useSelection(state, organizations, deploymentsByJob)
+  const { organizations, loading, error, reload: reloadOrganizations } = useOrganizations(api, activeProfile)
 
-  const orgName = org?.name
-  const projectName = project?.name
-  const projectPath = project?.path
-  const deploymentNumber = deployment?.number
+  // Resolve the project before builds: the build-history hook needs the job
+  // path, while the full selection needs the build map it returns.
+  const projectPath = useMemo(
+    () => resolveSelection(state, organizations, NO_DEPLOYMENTS).project?.path,
+    [state, organizations],
+  )
 
-  // Load the first page of build history (with commit counts) once a project is
-  // actually opened (deploy/run). Loading while merely browsing the project list
-  // fires a fetch for every highlighted row, which stutters fast j/k navigation.
+  const { deploymentsByJob, refresh, isLoadingMore } = useDeployments(
+    api,
+    view,
+    projectPath,
+    state.selectedDeployment,
+    reloadToken,
+  )
+
+  const {
+    orgList,
+    org,
+    orgIndex,
+    projectList,
+    project,
+    projectIndex,
+    deployList,
+    deployment,
+    deploymentIndex,
+  } = useSelection(state, organizations, deploymentsByJob)
+
+  const queue = useQueue(api, queueOpen)
+  const queueIndexClamped = Math.min(queueIndex, Math.max(queue.items.length - 1, 0))
+
+  const onBuildFinished = useCallback(() => {
+    if (projectPath) void refresh(projectPath).catch(() => {})
+  }, [projectPath, refresh])
+
+  const run = useRunStream(
+    api,
+    view === "run" ? projectPath : undefined,
+    view === "run" ? deployment?.number : undefined,
+    reloadToken,
+    onBuildFinished,
+  )
+
+  // Async callbacks read these refs so a long queue poll never acts on a stale
+  // selection, organization tree, or profile.
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const organizationsRef = useRef(organizations)
+  organizationsRef.current = organizations
+  const projectPathRef = useRef(projectPath)
+  projectPathRef.current = projectPath
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const notify = useCallback((text: string, tone: "info" | "error" = "info") => {
+    dispatch({ type: "setNotice", notice: { text, tone } })
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => dispatch({ type: "setNotice", notice: null }), 5000)
+  }, [])
+
   useEffect(() => {
-    if (view !== "deploy" && view !== "run") return
-    if (!projectPath) return
-    if (reloadToken === 0 && deploymentsByJob[projectPath]) return
-    let active = true
-    loadPage(projectPath, PAGE_SIZE)
-      .then((builds) => {
-        if (active) setDeploymentsByJob((prev) => ({ ...prev, [projectPath]: builds }))
-      })
-      .catch(() => {
-        if (active) setDeploymentsByJob((prev) => ({ ...prev, [projectPath]: [] }))
-      })
     return () => {
-      active = false
+      if (noticeTimer.current) clearTimeout(noticeTimer.current)
     }
-  }, [view, projectPath, reloadToken])
+  }, [])
 
-  // Load stage view, then stream console output while the build keeps producing.
+  // A failed background refresh should be visible even when the cached list is
+  // still on screen; the placeholder only reports errors when the list is empty.
   useEffect(() => {
-    if (view !== "run" || !projectPath || deploymentNumber === undefined) return
-    let active = true
-    let timer: ReturnType<typeof setTimeout> | undefined
+    if (error && organizations.length > 0) notify(error, "error")
+  }, [error, organizations.length, notify])
 
-    setStages([])
-    setLog([])
-    setRunLoading(true)
-    setRunError(null)
+  const buildActions = useBuildActions({
+    api,
+    dispatch,
+    activeProfile,
+    stateRef,
+    organizationsRef,
+    projectPathRef,
+    notify,
+    refresh,
+    latestBuild: (jobPath) => deploymentsByJob[jobPath]?.[0]?.number,
+    reloadOrganizations,
+    reloadQueue: queue.reload,
+  })
 
-    // Seed with the previous build's stage names so a running build shows every
-    // stage up front (pending). seedStages never overwrites live data.
-    fetchStageTemplate(projectPath, deploymentNumber)
-      .then((template) => {
-        if (active && template.length > 0) setStages((prev) => seedStages(prev, template))
-      })
-      .catch(() => { })
+  const refreshAll = useCallback(() => {
+    setReloadToken((value) => value + 1)
+    reloadOrganizations()
+  }, [reloadOrganizations])
 
-    fetchStages(projectPath, deploymentNumber)
-      .then((data) => {
-        if (active) setStages((prev) => mergeStages(prev, data))
-      })
-      .catch((err: unknown) => {
-        if (active) setRunError(err instanceof Error ? err.message : String(err))
-      })
-      .finally(() => {
-        if (active) setRunLoading(false)
-      })
-
-    let carry = ""
-    let offset = 0
-    const step = async () => {
-      // Refresh stage durations/status, log tail, and liveness every tick.
-      // This Jenkins reports X-More-Data:true even for finished builds, so the
-      // build's own `building` flag decides when to stop.
-      const [page, freshStages, buildState] = await Promise.all([
-        pollLog(projectPath, deploymentNumber, offset),
-        fetchStages(projectPath, deploymentNumber).catch(() => null),
-        fetchBuildState(projectPath, deploymentNumber).catch(() => null),
-      ])
-      if (!active) return
-
-      offset = page.size
-      const chunk = appendLog(carry, page.text)
-      carry = chunk.carry
-      if (chunk.lines.length > 0) setLog((prev) => [...prev, ...chunk.lines])
-      if (freshStages) setStages((prev) => mergeStages(prev, freshStages))
-
-      if (buildState?.building) {
-        timer = setTimeout(() => void step(), config.pollIntervalMs)
-      } else {
-        // Build finished: flip any never-run stage to skipped, then refresh the
-        // build list so status + commits update.
-        setStages((prev) =>
-          prev.map((stage) => (stage.status === "PENDING" ? { ...stage, status: "SKIPPED" as const } : stage)),
-        )
-        loadPage(projectPath, PAGE_SIZE)
-          .then((builds) => {
-            if (active) setDeploymentsByJob((prev) => ({ ...prev, [projectPath]: builds }))
-          })
-          .catch(() => {})
-      }
-    }
-    void step()
-
-    return () => {
-      active = false
-      if (timer) clearTimeout(timer)
-    }
-  }, [view, projectPath, deploymentNumber, reloadToken])
-
-  // Commit the visible selection before drilling so it survives the query reset.
   const drillIn = useCallback(() => {
     if (view === "org" && org) dispatch({ type: "selectOrg", name: org.name })
     else if (view === "project" && project) dispatch({ type: "selectProject", path: project.path })
@@ -177,165 +160,67 @@ export function App() {
     dispatch({ type: "drillIn" })
   }, [view, org, project, deployment])
 
-  // Infinite scroll: when the highlighted build nears the end of the loaded
-  // list, fetch more history for this job by growing the limit.
-  useEffect(() => {
-    if (view !== "deploy" || !projectPath) return
-    const loaded = deploymentsByJob[projectPath] ?? []
-    if (loaded.length === 0) return
-    if (deploymentIndex < loaded.length - 5) return
-    let active = true
-    loadPage(projectPath, loaded.length + PAGE_SIZE)
-      .then((next) => {
-        if (!active || next.length <= loaded.length) return
-        // loadPage returns a complete list (with fresh commit counts), so just
-        // replace it; there is no partial state to reconcile.
-        setDeploymentsByJob((prev) => ({ ...prev, [projectPath]: next }))
-      })
-      .catch(() => { })
-    return () => {
-      active = false
-    }
-  }, [view, projectPath, deploymentIndex, deploymentsByJob])
-
   function switchProfile(name: string) {
     if (name === activeProfile) {
       dispatch({ type: "closeProfiles" })
       return
     }
     console.debug(`[profile] switch ${activeProfile} -> ${name}`)
+    buildActions.cancelFollow()
     setActiveProfile(name)
     setActiveProfileState(name)
-    // Drop all cached data from the previous server and reload from scratch.
-    setDeploymentsByJob({})
-    setStages([])
-    setLog([])
-    setReloadToken((n) => n + 1)
-    reloadOrganizations()
     dispatch({ type: "resetForProfile" })
     dispatch({ type: "closeProfiles" })
   }
 
-  const reloadAll = useCallback(() => {
-    setReloadToken((n) => n + 1)
-    reloadOrganizations()
-  }, [reloadOrganizations])
-
-  // Ask to build the highlighted project (deploy/run) or, in run, rebuild the
-  // current job. Uses the visible selection so it always targets what's on screen.
-  function askBuild() {
-    if (!project) return
-    dispatch({
-      type: "askConfirm",
-      action: {
-        kind: "build",
-        label: `Start a new build of ${project.name}?`,
-        profile: activeProfile,
-        url: jobUrl(project.path),
-      },
-    })
-  }
-
-  function askStop() {
-    if (!project || !deployment || !deployment.building) return
-    dispatch({
-      type: "askConfirm",
-      action: {
-        kind: "stop",
-        label: `Abort ${project.name} ${deployment.name}?`,
-        profile: activeProfile,
-        url: buildConsoleUrl(project.path, deployment.number),
-      },
-    })
-  }
-
-  async function runConfirmed() {
-    if (!confirm || !project) return
-    const action = confirm
-    dispatch({ type: "clearConfirm" })
-    dispatch({ type: "setBusy", busy: true })
-    try {
-      if (action.kind === "build") {
-        await triggerBuild(project.path)
-        console.debug(`[write] triggered build for ${project.path}`)
-      } else if (deployment) {
-        await stopBuild(project.path, deployment.number)
-        console.debug(`[write] stopped ${project.path} #${deployment.number}`)
-      }
-      // Give Jenkins a moment, then refresh so the new/aborted build shows up.
-      setTimeout(() => {
-        if (project) {
-          setDeploymentsByJob((prev) => {
-            const next = { ...prev }
-            delete next[project.path]
-            return next
-          })
-        }
-        reloadAll()
-        dispatch({ type: "setBusy", busy: false })
-      }, 2500)
-    } catch (err) {
-      console.error(`[write] failed:`, err instanceof Error ? err.message : err)
-      dispatch({ type: "setBusy", busy: false })
-    }
-  }
-
   function openConsole() {
-    if (view === "run" && project && deployment) {
-      openInBrowser(buildConsoleUrl(project.path, deployment.number))
+    if (project && deployment) {
+      openInBrowser(api.buildConsoleUrl(project.path, deployment.number))
       return
     }
-    if (project) openInBrowser(jobUrl(project.path))
+    if (project) openInBrowser(api.jobUrl(project.path))
   }
 
   function copyLink() {
     const url =
-      view === "run" && project && deployment ? buildConsoleUrl(project.path, deployment.number) : project ? jobUrl(project.path) : undefined
+      project && deployment
+        ? api.buildConsoleUrl(project.path, deployment.number)
+        : project
+          ? api.jobUrl(project.path)
+          : undefined
     if (!url) return
     const ok = copyToClipboard(renderer, url)
     console.debug(`[clip] ${ok ? "copied" : "failed"}: ${url}`)
   }
 
-  // Auto-refresh the org/project data on an interval while the UI is idle.
-  // Uses a silent reload so the list is swapped in place without a flicker.
+  // Auto-refresh is for the lists. While the run view is open the console poll
+  // already keeps the build fresh; refetching the whole tree would only add load.
   useEffect(() => {
     if (!autoRefresh) return
-    if (confirm || helpOpen || profileOpen || queueOpen || searching) return
+    if (confirm || helpOpen || profileOpen || queueOpen || searching || params) return
     const timer = setInterval(() => {
-      reloadOrganizations({ silent: true })
-      if (projectPath) {
-        loadPage(projectPath, PAGE_SIZE)
-          .then((builds) => setDeploymentsByJob((prev) => ({ ...prev, [projectPath]: builds })))
-          .catch(() => {})
+      if (view !== "run") reloadOrganizations({ silent: true })
+      // Refreshing while a page is loading invalidates that page's generation,
+      // so slow pagination would never finish.
+      if (view === "deploy" && projectPath && !isLoadingMore(projectPath)) {
+        void refresh(projectPath).catch(() => {})
       }
     }, config.autoRefreshMs)
     return () => clearInterval(timer)
-  }, [autoRefresh, confirm, helpOpen, profileOpen, searching, projectPath, reloadOrganizations])
-
-  // Load the queue while its dialog is open, refreshing until it closes.
-  useEffect(() => {
-    if (!queueOpen) return
-    let active = true
-    const load = () => {
-      setQueueLoading(true)
-      fetchQueue()
-        .then((items) => {
-          if (active) setQueueItems(items)
-        })
-        .catch(() => {
-          if (active) setQueueItems([])
-        })
-        .finally(() => {
-          if (active) setQueueLoading(false)
-        })
-    }
-    load()
-    const timer = setInterval(load, config.autoRefreshMs)
-    return () => {
-      active = false
-      clearInterval(timer)
-    }
-  }, [queueOpen])
+  }, [
+    autoRefresh,
+    confirm,
+    helpOpen,
+    profileOpen,
+    queueOpen,
+    searching,
+    params,
+    view,
+    projectPath,
+    reloadOrganizations,
+    refresh,
+    isLoadingMore,
+  ])
 
   useKeyboard((key) => {
     const action = keyToAction(state as AppState, key.name)
@@ -345,8 +230,7 @@ export function App() {
         renderer.destroy()
         return
       case "refresh":
-        setReloadToken((n) => n + 1)
-        reloadOrganizations()
+        refreshAll()
         return
       case "drillIn":
         drillIn()
@@ -389,10 +273,10 @@ export function App() {
         dispatch({ type: "moveProfile", delta: action.delta, count: profiles.length })
         return
       case "triggerBuild":
-        askBuild()
+        buildActions.askBuild(project, params)
         return
       case "stopBuild":
-        askStop()
+        buildActions.askStop(project, deployment, view === "run" ? run.live : Boolean(deployment?.building))
         return
       case "openConsole":
         openConsole()
@@ -407,7 +291,7 @@ export function App() {
         dispatch({ type: "toggleAutoRefresh" })
         return
       case "confirmYes":
-        void runConfirmed()
+        void buildActions.runConfirmed()
         return
       case "confirmNo":
         dispatch({ type: "clearConfirm" })
@@ -419,7 +303,28 @@ export function App() {
         dispatch({ type: "closeQueue" })
         return
       case "moveQueue":
-        dispatch({ type: "moveQueue", delta: action.delta, count: queueItems.length })
+        dispatch({ type: "moveQueue", delta: action.delta, count: queue.items.length })
+        return
+      case "openQueueItem":
+        buildActions.openQueueItem(queue.items[queueIndexClamped])
+        return
+      case "cancelQueue":
+        buildActions.askCancelQueue(queue.items[queueIndexClamped])
+        return
+      case "closeParams":
+        dispatch({ type: "closeParams" })
+        return
+      case "moveParam":
+        dispatch({ type: "moveParam", delta: action.delta, count: params?.fields.length ?? 0 })
+        return
+      case "startParamEdit":
+        dispatch({ type: "setParamEditing", editing: true })
+        return
+      case "cancelParamEdit":
+        dispatch({ type: "setParamEditing", editing: false })
+        return
+      case "commitParam":
+        dispatch({ type: "commitParam" })
         return
       case "enterSearch":
       case "exitSearch":
@@ -430,8 +335,9 @@ export function App() {
   })
 
   const meta = VIEW_META[view]
-  const breadcrumb = breadcrumbFor(view, orgName, projectName, deployment?.name)
+  const breadcrumb = breadcrumbFor(view, org?.name, project?.name, deployment?.name)
   const statusBadge = [
+    busy ? "working" : null,
     statusFilter !== "all" ? `filter:${statusFilter}` : null,
     autoRefresh ? "auto" : "manual",
   ]
@@ -442,11 +348,13 @@ export function App() {
   const searchHint = q ? ` matching "${q}"` : ""
   // undefined = never fetched, [] = fetched but empty.
   const buildsLoaded = project ? deploymentsByJob[projectPath ?? ""] !== undefined : false
+  const modalOpen = helpOpen || profileOpen || !!confirm || queueOpen || !!params
+  const runHasContent = run.stages.length > 0 || run.log.length > 0
 
   const placeholder = (() => {
     if (view === "org") {
-      if (loading) return { text: "Loading organizations…" }
-      if (error) return { text: error, tone: "error" as const }
+      if (loading && orgList.length === 0) return { text: "Loading organizations…" }
+      if (error && orgList.length === 0) return { text: error, tone: "error" as const }
       if (orgList.length === 0) return { text: `No organizations${searchHint}` }
       return null
     }
@@ -460,9 +368,14 @@ export function App() {
       return null
     }
     if (view === "run") {
-      if (runLoading) return { text: "Loading stage view…" }
-      if (runError) return { text: runError, tone: "error" as const }
-      if (stages.length === 0) return { text: "No stages recorded" }
+      if (!deployment && state.selectedDeployment !== null) {
+        return buildsLoaded
+          ? { text: `Build #${state.selectedDeployment} not found`, tone: "error" as const }
+          : { text: "Loading build…" }
+      }
+      if (run.loading && !runHasContent) return { text: "Loading stage view…" }
+      if (run.error && !runHasContent) return { text: run.error, tone: "error" as const }
+      if (!runHasContent) return { text: "No stages recorded" }
       return null
     }
     return null
@@ -487,9 +400,10 @@ export function App() {
       <SearchBar
         placeholder={meta.placeholder}
         value={query}
-        focused={searching && !helpOpen && !profileOpen && !confirm && !queueOpen}
+        focused={searching && !modalOpen}
         onValueChange={(value) => dispatch({ type: "setQuery", query: value })}
       />
+      {notice ? <NoticeBar notice={notice} /> : null}
 
       {view === "org" &&
         (placeholder ? (
@@ -498,7 +412,7 @@ export function App() {
           <OrgScreen
             organizations={orgList}
             selectedIndex={orgIndex}
-            focused={!searching && !helpOpen && !profileOpen && !confirm && !queueOpen}
+            focused={!searching && !modalOpen}
             onChange={selectOrg}
             onSubmit={drillIn}
           />
@@ -511,7 +425,7 @@ export function App() {
           <ProjectScreen
             projects={projectList}
             selectedIndex={projectIndex}
-            focused={!searching && !helpOpen && !profileOpen && !confirm && !queueOpen}
+            focused={!searching && !modalOpen}
             onChange={selectProject}
             onSubmit={drillIn}
           />
@@ -524,7 +438,7 @@ export function App() {
           <DeployScreen
             deployments={deployList}
             selectedIndex={deploymentIndex}
-            focused={!searching && !helpOpen && !profileOpen && !confirm && !queueOpen}
+            focused={!searching && !modalOpen}
             onChange={selectDeployment}
             onSubmit={drillIn}
           />
@@ -536,17 +450,29 @@ export function App() {
         ) : (
           <RunScreen
             deployment={deployment}
-            stages={stages}
-            log={log}
+            stages={run.stages}
+            log={run.log}
             query={query}
-            logFocused={!searching && !helpOpen && !profileOpen && !confirm && !queueOpen}
+            logFocused={!searching && !modalOpen}
+            warning={run.warning}
+            live={run.live}
           />
         ))}
 
       {helpOpen && <HelpDialog />}
       {profileOpen && <ProfileDialog names={profiles} active={activeProfile} selectedIndex={profileIndex} />}
+      {queueOpen && <QueueDialog items={queue.items} selectedIndex={queueIndexClamped} loading={queue.loading} />}
+      {params && (
+        <ParamsDialog
+          projectName={params.projectName}
+          fields={params.fields}
+          index={params.index}
+          editing={params.editing}
+          onChange={(value) => dispatch({ type: "setParamValue", value })}
+        />
+      )}
+      {/* Confirmation renders last so it stays above the queue and parameter dialogs. */}
       {confirm && <ConfirmDialog action={confirm} busy={busy} />}
-      {queueOpen && <QueueDialog items={queueItems} selectedIndex={queueIndex} loading={queueLoading} />}
     </box>
   )
 }

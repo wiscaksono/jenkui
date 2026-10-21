@@ -28,6 +28,13 @@ export type KeyAction =
   | { type: "openQueue" }
   | { type: "closeQueue" }
   | { type: "moveQueue"; delta: number }
+  | { type: "openQueueItem" }
+  | { type: "cancelQueue" }
+  | { type: "closeParams" }
+  | { type: "moveParam"; delta: number }
+  | { type: "startParamEdit" }
+  | { type: "cancelParamEdit" }
+  | { type: "commitParam" }
 
 const ENTER_KEYS = new Set(["enter", "return", "linefeed"])
 const BACK_KEYS = new Set(["escape", "h", "left"])
@@ -43,13 +50,33 @@ export function keyToAction(state: AppState, key: string): KeyAction | null {
     if (key === "escape" || key === "." || key === "q") return { type: "closeQueue" }
     if (DOWN_KEYS.has(key)) return { type: "moveQueue", delta: 1 }
     if (UP_KEYS.has(key)) return { type: "moveQueue", delta: -1 }
+    if (ENTER_KEYS.has(key)) return { type: "openQueueItem" }
+    if (key === "x") return { type: "cancelQueue" }
     return null
   }
 
-  // The confirmation dialog is modal.
+  // The confirmation dialog is modal. While a write is in flight it ignores
+  // every key, so a double Enter cannot trigger two builds.
   if (state.confirm) {
+    if (state.busy) return null
     if (ENTER_KEYS.has(key) || key === "y") return { type: "confirmYes" }
     if (key === "escape" || key === "n" || key === "q") return { type: "confirmNo" }
+    return null
+  }
+
+  // The build-parameter form owns every key. While a field is being edited the
+  // text input keeps letters; only Enter/Escape leave that mode.
+  if (state.params) {
+    if (state.params.editing) {
+      if (ENTER_KEYS.has(key)) return { type: "commitParam" }
+      if (key === "escape") return { type: "cancelParamEdit" }
+      return null
+    }
+    if (key === "escape" || key === "q") return { type: "closeParams" }
+    if (DOWN_KEYS.has(key)) return { type: "moveParam", delta: 1 }
+    if (UP_KEYS.has(key)) return { type: "moveParam", delta: -1 }
+    if (ENTER_KEYS.has(key)) return { type: "startParamEdit" }
+    if (key === "b") return { type: "triggerBuild" }
     return null
   }
 
@@ -88,7 +115,6 @@ export function keyToAction(state: AppState, key: string): KeyAction | null {
     if (key === "x") return { type: "stopBuild" }
     if (key === "o") return { type: "openConsole" }
     if (key === "y") return { type: "copyLink" }
-    if (key === "f") return { type: "cycleFilter" }
     if (key === "A") return { type: "toggleAutoRefresh" }
     if (key === ".") return { type: "openQueue" }
     return null
@@ -99,11 +125,15 @@ export function keyToAction(state: AppState, key: string): KeyAction | null {
   if (key === "r") return { type: "refresh" }
   if (key === "p") return { type: "openProfiles" }
   if (key === "/") return { type: "enterSearch" }
-  if (key === "b") return { type: "triggerBuild" }
-  if (key === "x") return { type: "stopBuild" }
-  if (key === "o") return { type: "openConsole" }
-  if (key === "y") return { type: "copyLink" }
-  if (key === "f") return { type: "cycleFilter" }
+  // Write/open actions target a job, so they need a level that has one. The org
+  // row is a view, not a job; building "the first project" from there would be
+  // a nasty surprise.
+  if (key === "b" && state.view !== "org") return { type: "triggerBuild" }
+  // Abort only makes sense where a build is actually visible.
+  if (key === "x" && state.view === "deploy") return { type: "stopBuild" }
+  if (key === "o" && state.view !== "org") return { type: "openConsole" }
+  if (key === "y" && state.view !== "org") return { type: "copyLink" }
+  if (key === "f" && (state.view === "project" || state.view === "deploy")) return { type: "cycleFilter" }
   if (key === "A") return { type: "toggleAutoRefresh" }
   if (key === ".") return { type: "openQueue" }
   if (DOWN_KEYS.has(key)) return { type: "moveSelection", delta: 1 }

@@ -4,6 +4,7 @@ import { useTheme } from "../config/theme"
 import { useSpinner } from "../hooks/use-spinner"
 import { STATUS_META } from "../utils/format"
 import type { StageStatus } from "../types"
+import type { ThemeColor } from "../config/themes"
 
 export type ListItem = {
   key: string
@@ -22,18 +23,24 @@ type ListProps = {
   onSubmit: (index: number) => void
 }
 
+/** The animation lives in this leaf, so a running build does not re-render the whole list. */
+function RunningGlyph({ color }: { color: ThemeColor }) {
+  const spinner = useSpinner(true)
+  return <text fg={color}>{spinner}</text>
+}
+
 // A controlled list: selectedIndex is owned by the app, not by the component,
 // so filtering and selection never drift apart. Keyboard is handled globally
 // (see state/keymap.ts), which keeps a single source of truth for key actions.
 export function List({ items, selectedIndex, focused, onChange, onSubmit }: ListProps) {
   const { colors, statusColor } = useTheme()
-  const spinner = useSpinner(items.some((i) => i.status === "RUNNING"))
   const scrollRef = useRef<ScrollBoxRenderable>(null)
 
   // Keep the highlighted row in view using absolute scroll offsets. Each row is
   // one line tall, so the index maps directly to a scroll position; this avoids
   // the delta accumulation that scrollChildIntoView suffers under fast input.
   // A deferred tick gives the terminal a chance to lay out the viewport first.
+
   useEffect(() => {
     if (!focused) return
     const apply = () => {
@@ -75,8 +82,11 @@ export function List({ items, selectedIndex, focused, onChange, onSubmit }: List
             onMouseDown={() => onChange(index)}
             onMouseUp={() => onSubmit(index)}
           >
+            {item.status === "RUNNING" ? (
+              <RunningGlyph color={onSelected ? colors.selectionText : statusColor.RUNNING} />
+            ) : null}
             <text fg={onSelected ? colors.selectionText : colors.muted} wrapMode="none">
-              {item.status === "RUNNING" ? `${spinner} ${item.primary}` : item.primary}
+              {item.primary}
             </text>
             {item.statusLabel && item.status ? (
               <text fg={onSelected ? colors.selectionText : statusColor[item.status]}>

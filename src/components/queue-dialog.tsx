@@ -56,7 +56,7 @@ export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps)
           )
         })}
         <box style={{ marginTop: 1 }}>
-          <text fg={colors.faint}>j/k: move · esc: close</text>
+          <text fg={colors.faint}>enter: open build · x: cancel · j/k: move · esc: close</text>
         </box>
       </box>
     </box>

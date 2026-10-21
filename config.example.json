@@ -9,7 +9,8 @@
     "prod": {
       "url": "https://jenkins-prod.example.com",
       "user": "your_user",
-      "token": "your_api_token"
+      "token": "your_api_token",
+      "insecure": false
     }
   },
   "pollIntervalMs": 2000,

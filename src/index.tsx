@@ -29,17 +29,21 @@ switch (command.kind) {
   case "help":
     console.log(USAGE)
     process.exit(0)
+    break
   case "version":
     console.log(`jenkui ${VERSION}`)
     process.exit(0)
+    break
   case "listProfiles":
     listProfiles()
     process.exit(0)
+    break
   case "error":
     console.error(`jenkui: ${command.message}`)
     console.error()
     console.error(USAGE)
     process.exit(1)
+    break
 }
 
 if (!process.stdout.isTTY) {

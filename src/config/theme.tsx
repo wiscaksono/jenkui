@@ -5,12 +5,14 @@ import { useEffect } from "react"
 import { configuredMode, resolveTheme, themeConfig } from "./index"
 import { systemColors } from "./themes"
 import type { ThemeColor, ThemeColors, ThemeMode } from "./themes"
-import type { StageStatus } from "../types"
+import type { StageStatus, AnsiColor } from "../types"
 
 export type Theme = {
   colors: ThemeColors
   statusColor: Record<StageStatus, ThemeColor>
   profileColor: (name: string) => string
+  /** Maps a Jenkins ANSI foreground color to the active palette. */
+  ansiColor: (color: AnsiColor | undefined) => ThemeColor | undefined
 }
 
 // Concrete colors reported by the terminal via OSC queries, or null when the
@@ -31,6 +33,7 @@ export type TerminalPalette = {
 function useTerminalPalette(enabled: boolean, mode: ThemeMode): TerminalPalette | null {
   const renderer = useRenderer()
   const [palette, setPalette] = useState<TerminalPalette | null>(null)
+
 
   useEffect(() => {
     if (!enabled) {
@@ -119,15 +122,45 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       SUCCESS: colors.success,
       FAILURE: colors.failure,
       RUNNING: colors.running,
+      ABORTED: colors.muted,
+      UNSTABLE: colors.pending,
+      PAUSED: colors.running,
       SKIPPED: colors.skipped,
       PENDING: colors.pending,
     }
+    const palette: ThemeColor[] = [
+      colors.faint,
+      colors.failure,
+      colors.success,
+      colors.pending,
+      colors.accent,
+      colors.accent,
+      colors.running,
+      colors.foreground,
+      colors.muted,
+      colors.failure,
+      colors.success,
+      colors.pending,
+      colors.accent,
+      colors.accent,
+      colors.running,
+      colors.foreground,
+    ]
     return {
       colors,
       statusColor,
       // Profile badge colors come from config as hex strings; fall back to a
       // fixed gray when the profile has none.
       profileColor: (name: string) => themeConfig.profileColors[name] ?? "#888888",
+      // Pipeline output colors are semantic: red stays failure, green success,
+      // and the rest borrow the closest palette role. Truecolor output keeps its
+      // own hex so gradients and custom tools still look right.
+      ansiColor: (color: AnsiColor | undefined) => {
+        if (!color) return undefined
+        if (color.rgb) return color.rgb
+        if (color.index === undefined) return undefined
+        return palette[color.index % palette.length]
+      },
     }
   }, [colors])
 

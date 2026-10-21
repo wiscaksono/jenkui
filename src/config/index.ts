@@ -21,6 +21,8 @@ export type Profile = {
   url: string
   user: string
   token: string
+  /** Accept self-signed certificates (common for internal Jenkins servers). */
+  insecure?: boolean
 }
 
 export type AppConfig = {
@@ -32,7 +34,7 @@ export type AppConfig = {
 }
 
 const DEFAULT_PROFILE: Profile = {
-  url: "https://cicd-dev.msiglife.co.id",
+  url: "https://jenkins.example.com",
   user: "",
   token: "",
 }
@@ -77,11 +79,25 @@ function num(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined
 }
 
+// A negative or zero interval turns setInterval/setTimeout into a hot loop, and
+// an unbounded page size asks Jenkins for every build at once. Clamp both.
+function boundedInt(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = num(value)
+  if (parsed === undefined) return fallback
+  return Math.min(Math.max(Math.floor(parsed), min), max)
+}
+
+function normalizedUrl(value: string | undefined, fallback: string): string {
+  const url = (value ?? "").trim().replace(/\/+$/, "")
+  return url || fallback
+}
+
 function toProfile(raw: Record<string, unknown>, fallback: Profile): Profile {
   return {
-    url: str(raw.url) ?? fallback.url,
+    url: normalizedUrl(str(raw.url), fallback.url),
     user: str(raw.user) ?? fallback.user,
     token: str(raw.token) ?? fallback.token,
+    insecure: typeof raw.insecure === "boolean" ? raw.insecure : fallback.insecure,
   }
 }
 
@@ -91,6 +107,7 @@ function envOverride(profile: Profile): Profile {
     url: process.env.JENKINS_URL ?? profile.url,
     user: process.env.JENKINS_USER ?? process.env.JENKINS_USERNAME ?? profile.user,
     token: process.env.JENKINS_TOKEN ?? process.env.JENKINS_API_TOKEN ?? profile.token,
+    insecure: profile.insecure,
   }
 }
 
@@ -112,14 +129,18 @@ function loadProfiles(raw: Record<string, unknown>): { profiles: Record<string, 
 }
 
 function loadConfig(): AppConfig {
-  const raw = readJson(join(CONFIG_DIR, "config.json")) ?? {}
+  return parseConfig(readJson(join(CONFIG_DIR, "config.json")) ?? {})
+}
+
+/** Pure so config validation is testable without touching the user's files. */
+export function parseConfig(raw: Record<string, unknown>): AppConfig {
   const { profiles, defaultProfile } = loadProfiles(raw)
   return {
     profiles,
     defaultProfile,
-    pollIntervalMs: num(raw.pollIntervalMs) ?? DEFAULT_CONFIG.pollIntervalMs,
-    autoRefreshMs: num(raw.autoRefreshMs) ?? DEFAULT_CONFIG.autoRefreshMs,
-    pageSize: num(raw.pageSize) ?? DEFAULT_CONFIG.pageSize,
+    pollIntervalMs: boundedInt(raw.pollIntervalMs, DEFAULT_CONFIG.pollIntervalMs, 250, 60_000),
+    autoRefreshMs: boundedInt(raw.autoRefreshMs, DEFAULT_CONFIG.autoRefreshMs, 1_000, 600_000),
+    pageSize: boundedInt(raw.pageSize, DEFAULT_CONFIG.pageSize, 1, 500),
   }
 }
 

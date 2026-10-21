@@ -18,3 +18,13 @@ jobs:
       - run: bun test
       # Build the shipped bundle so broken imports fail here, not at publish time.
       - run: bun run build
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Built-in linting needs Bun 1.4.4; switch back to latest once stable.
+          bun-version: canary
+      - run: bun run lint

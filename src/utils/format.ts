@@ -15,6 +15,9 @@ export const STATUS_META: Record<StageStatus, { glyph: string; label: string }> 
   SUCCESS: { glyph: "\u{f00c}", label: "SUCCESS" },
   FAILURE: { glyph: "\u{f00d}", label: "FAILED" },
   RUNNING: { glyph: "\u{f04b}", label: "RUNNING" },
+  ABORTED: { glyph: "\u{f05e}", label: "ABORTED" },
+  UNSTABLE: { glyph: "\u{f071}", label: "UNSTABLE" },
+  PAUSED: { glyph: "\u{f04c}", label: "PAUSED" },
   SKIPPED: { glyph: "\u{f068}", label: "DISABLED" },
   PENDING: { glyph: "\u{f10c}", label: "PENDING" },
 }

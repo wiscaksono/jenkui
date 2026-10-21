@@ -43,8 +43,11 @@ export function resolveSelection(
   const org = orgList.find((o) => o.name === state.selectedOrg) ?? orgList[0]
 
   const allProjects = org?.projects ?? []
+  // The status filter belongs to the level it was applied on. Filtering
+  // projects must not swap the project that deploy/run is showing, and
+  // filtering builds must not swap the build being watched.
   const projectList = filterBy(allProjects, state.view === "project" ? q : "").filter((p) =>
-    matchesFilter(p.status, filter),
+    state.view === "project" ? matchesFilter(p.status, filter) : true,
   )
   // Match by path: in prod the same job name can live in several folders, so a
   // name-based match would jump to the first occurrence of a duplicate.
@@ -52,7 +55,7 @@ export function resolveSelection(
 
   const allDeployments = project ? (deploymentsByJob[project.path] ?? []) : []
   const deployList = filterBy(allDeployments, state.view === "deploy" ? q : "").filter((d) =>
-    matchesFilter(d.status, filter),
+    state.view === "deploy" ? matchesFilter(d.status, filter) : true,
   )
   const deployment = deployList.find((d) => d.number === state.selectedDeployment) ?? deployList[0]
 

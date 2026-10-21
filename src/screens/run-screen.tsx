@@ -1,134 +1,162 @@
-import { useEffect, useRef } from "react"
+import { memo, useEffect, useMemo, useRef } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../config/theme"
 import { formatDuration } from "../utils/format"
 import { useSpinner } from "../hooks/use-spinner"
-import type { Deployment, Stage, StageStatus } from "../types"
+import { highlightSpans, spansToString } from "../utils/log"
+import type { AnsiSpan, Deployment, LogLine, Stage, StageStatus } from "../types"
+import type { ThemeColor } from "../config/themes"
 
 type RunScreenProps = {
   deployment: Deployment
   stages: Stage[]
-  log: string[]
+  log: LogLine[]
   query: string
   logFocused: boolean
+  warning?: string | null
+  live?: boolean
 }
 
 const STATUS_GLYPH: Record<StageStatus, string> = {
   SUCCESS: "\u{f00c}",
   FAILURE: "\u{f00d}",
   RUNNING: "\u{f04b}",
+  ABORTED: "\u{f05e}",
+  UNSTABLE: "\u{f071}",
+  PAUSED: "\u{f04c}",
   SKIPPED: "\u{f068}",
   PENDING: "\u{f10c}",
 }
 
-const BAR_FILL = "#3A6EA5"
-
-type Segment = { text: string; hit: boolean }
-
-function highlight(text: string, q: string): Segment[] {
-  if (!q) return [{ text, hit: false }]
-  const lower = text.toLowerCase()
-  const segments: Segment[] = []
-  let cursor = 0
-  let index = lower.indexOf(q)
-  while (index !== -1) {
-    if (index > cursor) segments.push({ text: text.slice(cursor, index), hit: false })
-    segments.push({ text: text.slice(index, index + q.length), hit: true })
-    cursor = index + q.length
-    index = lower.indexOf(q, cursor)
-  }
-  if (cursor < text.length) segments.push({ text: text.slice(cursor), hit: false })
-  return segments.length ? segments : [{ text, hit: false }]
+/** Animated glyph isolated in its own component, so only this text ticks at 10fps. */
+function RunningSpinner({ color }: { color: ThemeColor }) {
+  const frame = useSpinner(true)
+  return <text fg={color}>{frame}</text>
 }
 
-export function RunScreen({ deployment, stages, log, query, logFocused }: RunScreenProps) {
+const StageCard = memo(function StageCard({ stage, max }: { stage: Stage; max: number }) {
   const { colors, statusColor } = useTheme()
-  const rows = stages
-  const max = Math.max(...rows.map((r) => r.durationMs), 1)
-  const q = query.trim().toLowerCase()
-  const title = deployment.building ? ` Console Output — ${deployment.name}  ● live ` : ` Console Output — ${deployment.name} `
+  return (
+    <box
+      border
+      borderStyle="rounded"
+      borderColor={statusColor[stage.status]}
+      style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0, height: 5, paddingX: 1 }}
+    >
+      <box style={{ flexDirection: "row", justifyContent: "space-between", gap: 3 }}>
+        <text fg={statusColor[stage.status]} truncate wrapMode="none">
+          {stage.name}
+        </text>
+        <box style={{ flexDirection: "row", alignItems: "center", gap: 1, flexShrink: 0 }}>
+          {stage.status === "RUNNING" ? (
+            <RunningSpinner color={statusColor[stage.status]} />
+          ) : (
+            <text fg={statusColor[stage.status]}>{STATUS_GLYPH[stage.status]}</text>
+          )}
+          <text fg={colors.muted}>{formatDuration(stage.durationMs)}</text>
+        </box>
+      </box>
+      <box style={{ flexDirection: "row", marginTop: 1 }}>
+        <box
+          style={{
+            flexGrow: Math.max(stage.durationMs, 1),
+            flexBasis: 0,
+            minWidth: 0,
+            height: 1,
+            backgroundColor: stage.status === "FAILURE" ? colors.failure : colors.accent,
+          }}
+        />
+        <box
+          style={{
+            flexGrow: Math.max(max - stage.durationMs, 0),
+            flexBasis: 0,
+            minWidth: 0,
+            height: 1,
+            backgroundColor: colors.selectionDim,
+          }}
+        />
+      </box>
+    </box>
+  )
+})
 
-  const spinner = useSpinner(rows.some((r) => r.status === "RUNNING"))
+const LogLineView = memo(function LogLineView({ spans, query }: { spans: AnsiSpan[]; query: string }) {
+  const { colors, ansiColor } = useTheme()
+  const marked = useMemo(() => highlightSpans(spans, query), [spans, query])
+  const plain = useMemo(() => spansToString(spans), [spans])
+  const isError = plain.startsWith("ERROR") || plain.startsWith("error")
+  return (
+    <box style={{ flexDirection: "row" }}>
+      {marked.map((span, index) => (
+        <text
+          key={index}
+          fg={span.hit ? colors.accent : (ansiColor(span.style.fg) ?? (isError ? colors.failure : colors.muted))}
+        >
+          {span.text}
+        </text>
+      ))}
+    </box>
+  )
+})
 
-  const logRef = useRef<ScrollBoxRenderable>(null)
+const EMPTY_LOG: LogLine = [{ text: "(no output)", style: {} }]
+
+const LogView = memo(function LogView({
+  log,
+  query,
+  focused,
+  title,
+}: {
+  log: LogLine[]
+  query: string
+  focused: boolean
+  title: string
+}) {
+  const { colors } = useTheme()
+  const ref = useRef<ScrollBoxRenderable>(null)
 
   useEffect(() => {
-    if (logFocused) logRef.current?.focus()
-    else logRef.current?.blur()
-  }, [logFocused])
+    if (focused) ref.current?.focus()
+    else ref.current?.blur()
+  }, [focused])
 
-  const logEntries = log.map((line) => ({ time: "", line }))
+  const lines = log.length > 0 ? log : [EMPTY_LOG]
+  return (
+    <box
+      title={title}
+      titleAlignment="left"
+      style={{
+        border: true,
+        flexDirection: "column",
+        flexGrow: 1,
+        minHeight: 0,
+        borderColor: colors.faint,
+        borderStyle: "rounded",
+      }}
+    >
+      <scrollbox ref={ref} stickyScroll stickyStart="bottom" style={{ flexGrow: 1, paddingX: 1 }}>
+        {lines.map((spans, index) => (
+          <LogLineView key={index} spans={spans} query={query} />
+        ))}
+      </scrollbox>
+    </box>
+  )
+})
+
+export function RunScreen({ deployment, stages, log, query, logFocused, warning, live }: RunScreenProps) {
+  const max = Math.max(...stages.map((stage) => stage.durationMs), 1)
+  const badge = live ? (warning ? "  ● reconnecting " : "  ● live ") : ""
+  const title = ` Console Output — ${deployment.name}${badge} `
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <box style={{ flexDirection: "row", alignItems: "flex-start", gap: 1, flexShrink: 0 }}>
-        {rows.map((stage) => (
-          <box
-            key={stage.name}
-            border
-            borderStyle="rounded"
-            borderColor={statusColor[stage.status]}
-            style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0, height: 5, paddingX: 1 }}
-          >
-            <box style={{ flexDirection: "row", justifyContent: "space-between", gap: 3 }}>
-              <text fg={statusColor[stage.status]} truncate wrapMode="none">
-                {stage.name}
-              </text>
-              <box style={{ flexDirection: "row", alignItems: "center", gap: 1, flexShrink: 0 }}>
-                <text fg={statusColor[stage.status]}>
-                  {stage.status === "RUNNING" ? spinner : STATUS_GLYPH[stage.status]}
-                </text>
-                <text fg={colors.muted}>{formatDuration(stage.durationMs)}</text>
-              </box>
-            </box>
-            <box style={{ flexDirection: "row", marginTop: 1 }}>
-              <box
-                style={{
-                  flexGrow: Math.max(stage.durationMs, 1),
-                  flexBasis: 0,
-                  minWidth: 0,
-                  height: 1,
-                  backgroundColor: stage.status === "FAILURE" ? colors.failure : BAR_FILL,
-                }}
-              />
-              <box
-                style={{
-                  flexGrow: Math.max(max - stage.durationMs, 0),
-                  flexBasis: 0,
-                  minWidth: 0,
-                  height: 1,
-                  backgroundColor: colors.selectionDim,
-                }}
-              />
-            </box>
-          </box>
+        {stages.map((stage) => (
+          <StageCard key={stage.name} stage={stage} max={max} />
         ))}
       </box>
 
-      <box
-        title={title}
-        titleAlignment="left"
-        style={{ border: true, flexDirection: "column", flexGrow: 1, minHeight: 0, borderColor: colors.faint, borderStyle: "rounded" }}
-      >
-        <scrollbox ref={logRef} stickyScroll stickyStart="bottom" style={{ flexGrow: 1, paddingX: 1 }}>
-          {(logEntries.length ? logEntries : [{ time: "", line: "(no output)" }]).map((entry, i) => {
-            const isError = entry.line.startsWith("ERROR") || entry.line.startsWith("error")
-            const segments = highlight(entry.line, q)
-            return (
-              <box key={i} style={{ flexDirection: "row", gap: 1 }}>
-                <text fg={colors.faint}>{entry.time}</text>
-                <box style={{ flexDirection: "row" }}>
-                  {segments.map((seg, j) => (
-                    <text key={j} fg={seg.hit ? colors.accent : isError ? colors.failure : colors.muted}>
-                      {seg.text}
-                    </text>
-                  ))}
-                </box>
-              </box>
-            )
-          })}
-        </scrollbox>
-      </box>
+      <LogView log={log} query={query} focused={logFocused} title={title} />
     </box>
   )
 }

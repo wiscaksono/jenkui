@@ -6,8 +6,15 @@ type ConfirmDialogProps = {
   busy: boolean
 }
 
+const TITLES: Record<ConfirmAction["kind"], string> = {
+  build: " Start a new build ",
+  stop: " Confirm Abort ",
+  cancelQueue: " Cancel Queued Build ",
+}
+
 export function ConfirmDialog({ action, busy }: ConfirmDialogProps) {
   const { colors } = useTheme()
+  const danger = action.kind !== "build"
   return (
     <box
       style={{
@@ -23,14 +30,21 @@ export function ConfirmDialog({ action, busy }: ConfirmDialogProps) {
       }}
     >
       <box
-        title={action.kind === "build" ? " Start a new build " : " Confirm Abort "}
+        title={TITLES[action.kind]}
         titleAlignment="center"
         border
         borderStyle="rounded"
-        borderColor={action.kind === "build" ? colors.accent : colors.failure}
+        borderColor={danger ? colors.failure : colors.accent}
         style={{ flexDirection: "column", width: 54, paddingX: 2, paddingY: 1, backgroundColor: colors.surface }}
       >
         <text fg={colors.muted}>{action.label}</text>
+        {action.kind === "build" && action.params && action.params.length > 0 ? (
+          <text fg={colors.faint} wrapMode="none">
+            {`params: ${action.params
+              .map((param) => `${param.name}=${param.secret ? "(hidden)" : param.value}`)
+              .join(" · ")}`}
+          </text>
+        ) : null}
         <text fg={colors.faint}>{`profile: ${action.profile}`}</text>
         <text fg={colors.faint} wrapMode="none">
           {action.url}

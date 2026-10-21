@@ -94,12 +94,23 @@ describe("keyToAction", () => {
   test("write keys map in list and run views", () => {
     for (const view of ["project", "deploy", "run"] as const) {
       expect(keyToAction(state({ view }), "b")).toEqual({ type: "triggerBuild" })
-      expect(keyToAction(state({ view }), "x")).toEqual({ type: "stopBuild" })
       expect(keyToAction(state({ view }), "o")).toEqual({ type: "openConsole" })
       expect(keyToAction(state({ view }), "y")).toEqual({ type: "copyLink" })
-      expect(keyToAction(state({ view }), "f")).toEqual({ type: "cycleFilter" })
       expect(keyToAction(state({ view }), "A")).toEqual({ type: "toggleAutoRefresh" })
     }
+    expect(keyToAction(state({ view: "deploy" }), "x")).toEqual({ type: "stopBuild" })
+    expect(keyToAction(state({ view: "run" }), "x")).toEqual({ type: "stopBuild" })
+    // No build is visible in the project view, even when its history is cached.
+    expect(keyToAction(state({ view: "project" }), "x")).toBeNull()
+    // The org row is a view, not a job, so write/open actions do not apply.
+    for (const key of ["b", "x", "o", "y"]) {
+      expect(keyToAction(state({ view: "org" }), key)).toBeNull()
+    }
+    // The org view has no status column to filter, and the run view has no list.
+    expect(keyToAction(state({ view: "project" }), "f")).toEqual({ type: "cycleFilter" })
+    expect(keyToAction(state({ view: "deploy" }), "f")).toEqual({ type: "cycleFilter" })
+    expect(keyToAction(state({ view: "org" }), "f")).toBeNull()
+    expect(keyToAction(state({ view: "run" }), "f")).toBeNull()
     // In search mode these are text.
     expect(keyToAction(state({ mode: "search" }), "b")).toBeNull()
     expect(keyToAction(state({ mode: "search" }), "f")).toBeNull()
@@ -107,7 +118,13 @@ describe("keyToAction", () => {
 
   test("confirm dialog is modal: y/enter accept, n/esc decline", () => {
     const confirming = state({
-      confirm: { kind: "build", label: "Build x?", profile: "dev", url: "http://x" },
+      confirm: {
+        kind: "build",
+        label: "Build x?",
+        profile: "dev",
+        url: "http://x",
+        projectPath: "x",
+      },
     })
     expect(keyToAction(confirming, "enter")).toEqual({ type: "confirmYes" })
     expect(keyToAction(confirming, "y")).toEqual({ type: "confirmYes" })
@@ -117,6 +134,8 @@ describe("keyToAction", () => {
     expect(keyToAction(confirming, "b")).toBeNull()
     expect(keyToAction(confirming, "j")).toBeNull()
     expect(keyToAction(confirming, "q")).toEqual({ type: "confirmNo" })
+    // A write in flight ignores keys so Enter cannot fire twice.
+    expect(keyToAction({ ...confirming, busy: true }, "enter")).toBeNull()
   })
 
   test("dot opens the queue, which is modal and moves with j/k", () => {
@@ -126,7 +145,31 @@ describe("keyToAction", () => {
     expect(keyToAction(open, "k")).toEqual({ type: "moveQueue", delta: -1 })
     expect(keyToAction(open, "escape")).toEqual({ type: "closeQueue" })
     expect(keyToAction(open, ".")).toEqual({ type: "closeQueue" })
+    expect(keyToAction(open, "enter")).toEqual({ type: "openQueueItem" })
+    expect(keyToAction(open, "x")).toEqual({ type: "cancelQueue" })
     expect(keyToAction(open, "b")).toBeNull()
     expect(keyToAction(open, "/")).toBeNull()
+  })
+
+  test("parameter form is modal and hands letters to the input while editing", () => {
+    const form = state({
+      params: {
+        projectPath: "app",
+        projectName: "app",
+        fields: [{ name: "BRANCH", type: "StringParameterDefinition", defaultValue: "main", value: "main" }],
+        index: 0,
+        editing: false,
+      },
+    })
+    expect(keyToAction(form, "j")).toEqual({ type: "moveParam", delta: 1 })
+    expect(keyToAction(form, "enter")).toEqual({ type: "startParamEdit" })
+    expect(keyToAction(form, "b")).toEqual({ type: "triggerBuild" })
+    expect(keyToAction(form, "escape")).toEqual({ type: "closeParams" })
+    expect(keyToAction(form, "x")).toBeNull()
+
+    const editing = state({ params: { ...form.params!, editing: true } })
+    expect(keyToAction(editing, "a")).toBeNull()
+    expect(keyToAction(editing, "enter")).toEqual({ type: "commitParam" })
+    expect(keyToAction(editing, "escape")).toEqual({ type: "cancelParamEdit" })
   })
 })

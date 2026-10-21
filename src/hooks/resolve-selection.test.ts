@@ -89,8 +89,7 @@ describe("resolveSelection", () => {
     expect(s.deployList).toHaveLength(2)
   })
 
-  test("duplicate project names in different folders resolve by path", () => {
-    // Regression: prod has the same job name under multiple folders, and a
+  test("duplicate project names in different folders resolve by path", () => {    // Regression: prod has the same job name under multiple folders, and a
     // name-based match jumped the selection back to the first occurrence.
     const dupOrgs: Organization[] = [
       {
@@ -110,5 +109,46 @@ describe("resolveSelection", () => {
     expect(s.projectIndex).toBe(2)
     expect(s.project?.folder).toBe("POLARIS-CLOUD-GKE")
     expect(s.project?.status).toBe("FAILURE")
+  })
+
+  test("status filter narrows projects only in the project view", () => {
+    const projectView = resolveSelection(
+      state({ view: "project", selectedOrg: "alcor", statusFilter: "failed" }),
+      orgs,
+      deps,
+    )
+    expect(projectView.projectList.map((p) => p.name)).toEqual(["alcor-18"])
+
+    // Deploy view must keep showing the project that was opened, even when its
+    // own status does not match the filter.
+    const deployView = resolveSelection(
+      state({
+        view: "deploy",
+        selectedOrg: "alcor",
+        selectedProject: "alcor-02",
+        selectedDeployment: 33,
+        statusFilter: "failed",
+      }),
+      orgs,
+      deps,
+    )
+    expect(deployView.project?.path).toBe("alcor-02")
+    expect(deployView.deployList.map((d) => d.number)).toEqual([33])
+  })
+
+  test("status filter does not swap the build being watched in run view", () => {
+    const s = resolveSelection(
+      state({
+        view: "run",
+        selectedOrg: "alcor",
+        selectedProject: "alcor-02",
+        selectedDeployment: 35,
+        statusFilter: "failed",
+      }),
+      orgs,
+      deps,
+    )
+    expect(s.project?.path).toBe("alcor-02")
+    expect(s.deployment?.number).toBe(35)
   })
 })

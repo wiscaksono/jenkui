@@ -24,7 +24,12 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
+      - run: bun run build
+      # Lint with canary while the built-in linter is not in a stable Bun.
+      # Stable Bun still builds and publishes the package.
+      - run: npx -y bun@canary lint --no-script --max-warnings=0 src scripts
       # OIDC trusted publishing: no token. setup-node's registry-url + the
       # id-token permission let npm authenticate through GitHub's identity.
-      # --provenance is required for that OIDC path.
-      - run: npm publish --provenance --access public
+      # --provenance is required for that OIDC path. --ignore-scripts skips
+      # prepublishOnly (which needs the canary linter) because every step ran here.
+      - run: npm publish --provenance --access public --ignore-scripts

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { RGBA } from "@opentui/core"
+import type { RGBA } from "@opentui/core"
 import { THEMES, THEME_NAMES, SYSTEM_COLORS } from "./themes"
 import { DEFAULT_THEME, resolveTheme, type ThemeConfig } from "./index"
 

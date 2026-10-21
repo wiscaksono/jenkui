@@ -91,9 +91,72 @@ describe("reducer", () => {
   })
 
   test("askConfirm and clearConfirm manage the pending write", () => {
-    const action = { kind: "build" as const, label: "Build x?", profile: "dev", url: "http://x" }
+    const action = {
+      kind: "build" as const,
+      label: "Build x?",
+      profile: "dev",
+      url: "http://x",
+      projectPath: "x",
+    }
     const asked = reducer(initialState, { type: "askConfirm", action })
     expect(asked.confirm).toEqual(action)
     expect(reducer(asked, { type: "clearConfirm" }).confirm).toBeNull()
+  })
+
+  test("openBuild jumps straight to a build and closes the queue", () => {
+    const s = reducer(state({ queueOpen: true, view: "org" }), {
+      type: "openBuild",
+      org: "polaris",
+      projectPath: "polaris/job/api",
+      buildNumber: 42,
+    })
+    expect(s.view).toBe("run")
+    expect(s.selectedOrg).toBe("polaris")
+    expect(s.selectedProject).toBe("polaris/job/api")
+    expect(s.selectedDeployment).toBe(42)
+    expect(s.queueOpen).toBe(false)
+  })
+
+  test("parameter form edits one field at a time and advances on commit", () => {
+    const fields = [
+      { name: "BRANCH", type: "StringParameterDefinition", defaultValue: "main", value: "main" },
+      { name: "DRY_RUN", type: "BooleanParameterDefinition", defaultValue: "false", value: "false" },
+    ]
+    let s = reducer(initialState, {
+      type: "openParams",
+      projectPath: "app",
+      projectName: "app",
+      fields,
+    })
+    s = reducer(s, { type: "setParamEditing", editing: true })
+    s = reducer(s, { type: "setParamValue", value: "release" })
+    s = reducer(s, { type: "commitParam" })
+    expect(s.params?.fields[0]?.value).toBe("release")
+    expect(s.params?.fields[1]?.value).toBe("false")
+    expect(s.params?.index).toBe(1)
+    expect(s.params?.editing).toBe(false)
+
+    s = reducer(s, { type: "moveParam", delta: -1, count: 2 })
+    expect(s.params?.index).toBe(0)
+    s = reducer(s, { type: "closeParams" })
+    expect(s.params).toBeNull()
+  })
+
+  test("a profile switch drops an open parameter form and notice", () => {
+    const s = reducer(
+      state({
+        notice: { text: "build queued", tone: "info" },
+        params: {
+          projectPath: "app",
+          projectName: "app",
+          fields: [],
+          index: 0,
+          editing: false,
+        },
+      }),
+      { type: "resetForProfile" },
+    )
+    expect(s.params).toBeNull()
+    expect(s.notice).toBeNull()
   })
 })
