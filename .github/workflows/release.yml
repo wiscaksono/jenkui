@@ -14,7 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Built-in linting needs Bun 1.4.4; switch back to latest once stable.
+          bun-version: canary
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -25,11 +26,9 @@ jobs:
       - run: bun run typecheck
       - run: bun test
       - run: bun run build
-      # Lint with canary while the built-in linter is not in a stable Bun.
-      # Stable Bun still builds and publishes the package.
-      - run: npx -y bun@canary lint --no-script --max-warnings=0 src scripts
+      - run: bun run lint
       # OIDC trusted publishing: no token. setup-node's registry-url + the
       # id-token permission let npm authenticate through GitHub's identity.
       # --provenance is required for that OIDC path. --ignore-scripts skips
-      # prepublishOnly (which needs the canary linter) because every step ran here.
+      # prepublishOnly because every step ran explicitly here.
       - run: npm publish --provenance --access public --ignore-scripts
