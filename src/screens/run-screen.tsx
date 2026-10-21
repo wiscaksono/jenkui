@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../config/theme"
+import { useLayout } from "../config/layout"
 import { formatDuration } from "../utils/format"
 import { useSpinner } from "../hooks/use-spinner"
 import { highlightSpans, spansToString } from "../utils/log"
@@ -80,6 +81,48 @@ const StageCard = memo(function StageCard({ stage, max }: { stage: Stage; max: n
   )
 })
 
+const StageRow = memo(function StageRow({ stage }: { stage: Stage }) {
+  const { colors, statusColor } = useTheme()
+  return (
+    <box style={{ flexDirection: "row", alignItems: "center", gap: 1, paddingX: 1, flexShrink: 0 }}>
+      {stage.status === "RUNNING" ? (
+        <RunningSpinner color={statusColor[stage.status]} />
+      ) : (
+        <text fg={statusColor[stage.status]}>{STATUS_GLYPH[stage.status]}</text>
+      )}
+      <text
+        fg={statusColor[stage.status]}
+        truncate
+        wrapMode="none"
+        style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
+      >
+        {stage.name}
+      </text>
+      <text fg={colors.muted} wrapMode="none">
+        {formatDuration(stage.durationMs)}
+      </text>
+    </box>
+  )
+})
+
+const StageList = memo(function StageList({ stages }: { stages: Stage[] }) {
+  const layout = useLayout()
+  if (stages.length === 0) return null
+  const rows = Math.min(stages.length, layout.short ? 3 : 5)
+  return (
+    <scrollbox
+      stickyScroll
+      stickyStart="bottom"
+      viewportCulling
+      style={{ height: rows, flexShrink: 0 }}
+    >
+      {stages.map((stage) => (
+        <StageRow key={stage.name} stage={stage} />
+      ))}
+    </scrollbox>
+  )
+})
+
 const LogLineView = memo(function LogLineView({ spans, query }: { spans: AnsiSpan[]; query: string }) {
   const { colors, ansiColor } = useTheme()
   const marked = useMemo(() => highlightSpans(spans, query), [spans, query])
@@ -144,17 +187,25 @@ const LogView = memo(function LogView({
 })
 
 export function RunScreen({ deployment, stages, log, query, logFocused, warning, live }: RunScreenProps) {
+  const layout = useLayout()
   const max = Math.max(...stages.map((stage) => stage.durationMs), 1)
   const badge = live ? (warning ? "  ● reconnecting " : "  ● live ") : ""
-  const title = ` Console Output — ${deployment.name}${badge} `
+  const title = layout.narrow
+    ? ` Console ${deployment.name}${badge} `
+    : ` Console Output — ${deployment.name}${badge} `
+  const useCards = layout.stageCards(stages.length) && !layout.short
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
-      <box style={{ flexDirection: "row", alignItems: "flex-start", gap: 1, flexShrink: 0 }}>
-        {stages.map((stage) => (
-          <StageCard key={stage.name} stage={stage} max={max} />
-        ))}
-      </box>
+      {useCards ? (
+        <box style={{ flexDirection: "row", alignItems: "flex-start", gap: 1, flexShrink: 0 }}>
+          {stages.map((stage) => (
+            <StageCard key={stage.name} stage={stage} max={max} />
+          ))}
+        </box>
+      ) : (
+        <StageList stages={stages} />
+      )}
 
       <LogView log={log} query={query} focused={logFocused} title={title} />
     </box>

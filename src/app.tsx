@@ -1,4 +1,5 @@
 import { useKeyboard, useRenderer } from "@opentui/react"
+import { TextAttributes } from "@opentui/core"
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { Header } from "./components/header"
 import { HelpDialog } from "./components/help-dialog"
@@ -24,6 +25,8 @@ import { RunScreen } from "./screens/run-screen"
 import { initialState, reducer, type AppState } from "./state/store"
 import { keyToAction } from "./state/keymap"
 import { config, getActiveProfile, getActiveProfileName, profileNames, setActiveProfile } from "./config"
+import { useLayout } from "./config/layout"
+import { useTheme } from "./config/theme"
 import type { Deployment } from "./types"
 import { VIEW_META, breadcrumbFor } from "./state/views"
 import { resolveSelection } from "./hooks/resolve-selection"
@@ -35,6 +38,8 @@ const clamp = (index: number, length: number) => Math.max(0, Math.min(index, len
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const renderer = useRenderer()
+  const layout = useLayout()
+  const { colors } = useTheme()
   const {
     view,
     mode,
@@ -223,6 +228,10 @@ export function App() {
   ])
 
   useKeyboard((key) => {
+    if (layout.tooSmall) {
+      if (key.name === "q") renderer.destroy()
+      return
+    }
     const action = keyToAction(state as AppState, key.name)
     if (!action) return
     switch (action.type) {
@@ -334,6 +343,28 @@ export function App() {
     }
   })
 
+  if (layout.tooSmall) {
+    return (
+      <box
+        style={{
+          flexDirection: "column",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1,
+        }}
+      >
+        <text fg={colors.failure} attributes={TextAttributes.BOLD}>
+          Terminal too small
+        </text>
+        <text fg={colors.muted}>
+          {`${layout.width}x${layout.height}; minimum 30x10`}
+        </text>
+        <text fg={colors.muted}>q: quit</text>
+      </box>
+    )
+  }
+
   const meta = VIEW_META[view]
   const breadcrumb = breadcrumbFor(view, org?.name, project?.name, deployment?.name)
   const statusBadge = [
@@ -396,7 +427,7 @@ export function App() {
 
   return (
     <box style={{ flexDirection: "column", height: "100%" }}>
-      <Header title={meta.title} breadcrumb={breadcrumb} profile={activeProfile} status={statusBadge} />
+      <Header breadcrumb={breadcrumb} profile={activeProfile} status={statusBadge} />
       <SearchBar
         placeholder={meta.placeholder}
         value={query}

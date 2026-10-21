@@ -20,6 +20,7 @@ export function ProjectScreen({ projects, selectedIndex, focused, onChange, onSu
         status: p.status,
         statusLabel: STATUS_META[p.status].label,
         secondary: p.folder,
+        secondaryPriority: "important",
       }))}
       selectedIndex={selectedIndex}
       focused={focused}

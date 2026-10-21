@@ -2,6 +2,7 @@
 import { createRoot } from "@opentui/react"
 import { ConsolePosition, createCliRenderer } from "@opentui/core"
 import { App } from "./app"
+import { LayoutProvider } from "./config/layout"
 import { ThemeProvider } from "./config/theme"
 import { config, setActiveProfile } from "./config"
 import { parseArgs, USAGE } from "./cli"
@@ -71,6 +72,8 @@ renderer.keyInput.on("keypress", (key) => {
 
 createRoot(renderer).render(
   <ThemeProvider>
-    <App />
+    <LayoutProvider>
+      <App />
+    </LayoutProvider>
   </ThemeProvider>,
 )

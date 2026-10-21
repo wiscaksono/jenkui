@@ -1,4 +1,6 @@
 import { useTheme } from "../config/theme"
+import { useLayout } from "../config/layout"
+import { DialogFrame } from "./dialog-frame"
 
 const SHORTCUTS: Array<[string, string]> = [
   ["j / k", "move selection down / up"],
@@ -22,46 +24,27 @@ const SHORTCUTS: Array<[string, string]> = [
 
 export function HelpDialog() {
   const { colors } = useTheme()
+  const layout = useLayout()
+  const keyWidth = layout.narrow ? 7 : 10
   return (
-    <box
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: colors.overlay,
-        opacity: 0.85,
-      }}
+    <DialogFrame
+      title=" Keyboard Shortcuts "
+      preferredWidth={52}
+      preferredHeight={SHORTCUTS.length + 7}
+      scroll
+      autoFocusScroll
+      footer={<text fg={colors.faint}>esc or ? to close</text>}
     >
-      <box
-        title=" Keyboard Shortcuts "
-        titleAlignment="center"
-        border
-        borderStyle="rounded"
-        borderColor={colors.accent}
-        style={{
-          flexDirection: "column",
-          width: 52,
-          paddingX: 2,
-          paddingY: 1,
-          backgroundColor: colors.surface,
-        }}
-      >
-        {SHORTCUTS.map(([key, desc]) => (
-          <box key={key} style={{ flexDirection: "row", gap: 2 }}>
-            <text fg={colors.accent} width={10}>
-              {key}
-            </text>
-            <text fg={colors.muted}>{desc}</text>
-          </box>
-        ))}
-        <box style={{ marginTop: 1 }}>
-          <text fg={colors.faint}>esc or ? to close</text>
+      {SHORTCUTS.map(([key, desc]) => (
+        <box key={key} style={{ flexDirection: "row", gap: layout.narrow ? 1 : 2 }}>
+          <text fg={colors.accent} width={keyWidth} wrapMode="none" truncate>
+            {key}
+          </text>
+          <text fg={colors.muted} wrapMode="word" style={{ flexShrink: 1, minWidth: 0 }}>
+            {desc}
+          </text>
         </box>
-      </box>
-    </box>
+      ))}
+    </DialogFrame>
   )
 }

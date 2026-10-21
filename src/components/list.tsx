@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react"
+import { useRef } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../config/theme"
+import { useLayout } from "../config/layout"
+import { useScrollSelection } from "../hooks/use-scroll-selection"
 import { useSpinner } from "../hooks/use-spinner"
 import { STATUS_META } from "../utils/format"
 import type { StageStatus } from "../types"
@@ -13,6 +15,8 @@ export type ListItem = {
   status?: StageStatus
   statusLabel?: string
   secondary?: string
+  /** Folder context is worth keeping longer than dates/commit counts. */
+  secondaryPriority?: "normal" | "important"
 }
 
 type ListProps = {
@@ -34,27 +38,9 @@ function RunningGlyph({ color }: { color: ThemeColor }) {
 // (see state/keymap.ts), which keeps a single source of truth for key actions.
 export function List({ items, selectedIndex, focused, onChange, onSubmit }: ListProps) {
   const { colors, statusColor } = useTheme()
+  const layout = useLayout()
   const scrollRef = useRef<ScrollBoxRenderable>(null)
-
-  // Keep the highlighted row in view using absolute scroll offsets. Each row is
-  // one line tall, so the index maps directly to a scroll position; this avoids
-  // the delta accumulation that scrollChildIntoView suffers under fast input.
-  // A deferred tick gives the terminal a chance to lay out the viewport first.
-
-  useEffect(() => {
-    if (!focused) return
-    const apply = () => {
-      const box = scrollRef.current
-      if (!box) return
-      const height = box.viewport.height
-      if (!height) return
-      if (selectedIndex < box.scrollTop) box.scrollTop = selectedIndex
-      else if (selectedIndex >= box.scrollTop + height) box.scrollTop = selectedIndex - height + 1
-    }
-    apply()
-    const timer = setTimeout(apply, 16)
-    return () => clearTimeout(timer)
-  }, [focused, selectedIndex, items.length])
+  useScrollSelection(scrollRef, selectedIndex, items.length, focused)
 
   return (
     <scrollbox
@@ -69,6 +55,10 @@ export function List({ items, selectedIndex, focused, onChange, onSubmit }: List
       {items.map((item, index) => {
         const current = index === selectedIndex
         const onSelected = current && focused
+        const showSecondary =
+          Boolean(item.secondary) &&
+          (layout.showSecondary || (item.secondaryPriority === "important" && !layout.narrow))
+        const showStatusLabel = layout.width >= 50
         return (
           <box
             key={item.key}
@@ -85,16 +75,30 @@ export function List({ items, selectedIndex, focused, onChange, onSubmit }: List
             {item.status === "RUNNING" ? (
               <RunningGlyph color={onSelected ? colors.selectionText : statusColor.RUNNING} />
             ) : null}
-            <text fg={onSelected ? colors.selectionText : colors.muted} wrapMode="none">
+            <text
+              fg={onSelected ? colors.selectionText : colors.muted}
+              wrapMode="none"
+              truncate
+              style={{ flexShrink: 1, minWidth: 0 }}
+            >
               {item.primary}
             </text>
             {item.statusLabel && item.status ? (
-              <text fg={onSelected ? colors.selectionText : statusColor[item.status]}>
-                {`${STATUS_META[item.status].glyph} ${item.statusLabel}`}
+              <text fg={onSelected ? colors.selectionText : statusColor[item.status]} wrapMode="none">
+                {showStatusLabel
+                  ? `${STATUS_META[item.status].glyph} ${item.statusLabel}`
+                  : STATUS_META[item.status].glyph}
               </text>
             ) : null}
-            {item.secondary ? (
-              <text fg={onSelected ? colors.selectionText : colors.faint}>{item.secondary}</text>
+            {showSecondary ? (
+              <text
+                fg={onSelected ? colors.selectionText : colors.faint}
+                wrapMode="none"
+                truncate
+                style={{ flexShrink: 1, minWidth: 0 }}
+              >
+                {item.secondary}
+              </text>
             ) : null}
           </box>
         )

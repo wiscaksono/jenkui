@@ -159,6 +159,14 @@ The config and theme load once at startup. Restart jenkui after editing them.
 | `` ` `` | toggle the debug console overlay |
 | `q` | quit |
 
+## Layout
+
+The UI reflows with the terminal. The header is a single breadcrumb line plus
+the profile badge; below 80 columns the status text drops. At 100+ columns and
+when the stages fit, they render as cards; below 80 columns secondary list
+columns drop, and below 65 the stage view switches to a compact list. Terminals
+smaller than 30x10 show a terminal-too-small message instead of a broken layout.
+
 ## How it maps to Jenkins
 
 Jenkins **views** become organizations (`POLARIS`, `ALCOR`, …). Each job in a view

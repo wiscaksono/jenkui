@@ -1,25 +1,20 @@
 import type { View } from "../types"
 
 export type ViewMeta = {
-  title: string
   placeholder: string
 }
 
 export const VIEW_META: Record<View, ViewMeta> = {
   org: {
-    title: "Organization",
     placeholder: "Search Organization",
   },
   project: {
-    title: "Project",
     placeholder: "Search Project",
   },
   deploy: {
-    title: "Deployments",
     placeholder: "Search Deployment",
   },
   run: {
-    title: "Stage View",
     placeholder: "Search Log",
   },
 }

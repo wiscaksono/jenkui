@@ -1,5 +1,10 @@
+import { useRef } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../config/theme"
+import { useLayout } from "../config/layout"
+import { useScrollSelection } from "../hooks/use-scroll-selection"
 import type { QueueItem } from "../api/jenkins"
+import { DialogFrame } from "./dialog-frame"
 
 type QueueDialogProps = {
   items: QueueItem[]
@@ -9,56 +14,57 @@ type QueueDialogProps = {
 
 export function QueueDialog({ items, selectedIndex, loading }: QueueDialogProps) {
   const { colors } = useTheme()
+  const layout = useLayout()
+  const scrollRef = useRef<ScrollBoxRenderable>(null)
+  useScrollSelection(scrollRef, selectedIndex, items.length)
+
   return (
-    <box
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: colors.overlay,
-        opacity: 0.85,
-      }}
+    <DialogFrame
+      title=" Build Queue "
+      preferredWidth={64}
+      preferredHeight={Math.max(8, Math.min(items.length + 6, 20))}
+      scroll
+      scrollRef={scrollRef}
+      footer={
+        <text fg={colors.faint}>
+          {layout.narrow ? "enter open · x cancel" : "enter: open build · x: cancel · j/k: move · esc: close"}
+        </text>
+      }
     >
-      <box
-        title=" Build Queue "
-        titleAlignment="center"
-        border
-        borderStyle="rounded"
-        borderColor={colors.accent}
-        style={{ flexDirection: "column", width: 64, paddingX: 2, paddingY: 1, backgroundColor: colors.surface }}
-      >
-        {loading && items.length === 0 ? <text fg={colors.faint}>Loading queue…</text> : null}
-        {!loading && items.length === 0 ? <text fg={colors.faint}>Queue is empty</text> : null}
-        {items.map((item, index) => {
-          const current = index === selectedIndex
-          return (
-            <box
-              key={item.id}
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                gap: 2,
-                paddingX: 1,
-                backgroundColor: current ? colors.selection : "transparent",
-              }}
+      {loading && items.length === 0 ? <text fg={colors.faint}>Loading queue…</text> : null}
+      {!loading && items.length === 0 ? <text fg={colors.faint}>Queue is empty</text> : null}
+      {items.map((item, index) => {
+        const current = index === selectedIndex
+        return (
+          <box
+            key={item.id}
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              gap: 1,
+              paddingX: 1,
+              backgroundColor: current ? colors.selection : "transparent",
+            }}
+          >
+            <text
+              fg={current ? colors.selectionText : colors.muted}
+              wrapMode="none"
+              truncate
+              style={{ flexShrink: 1, minWidth: 0 }}
             >
-              <text fg={current ? colors.selectionText : colors.muted} wrapMode="none">
-                {item.name}
-              </text>
-              <text fg={current ? colors.selectionText : colors.faint} wrapMode="none">
-                {item.buildNumber ? `#${item.buildNumber}` : (item.why ?? "waiting")}
-              </text>
-            </box>
-          )
-        })}
-        <box style={{ marginTop: 1 }}>
-          <text fg={colors.faint}>enter: open build · x: cancel · j/k: move · esc: close</text>
-        </box>
-      </box>
-    </box>
+              {item.name}
+            </text>
+            <text
+              fg={current ? colors.selectionText : colors.faint}
+              wrapMode="none"
+              truncate
+              style={{ flexShrink: 0, maxWidth: layout.narrow ? 12 : 24 }}
+            >
+              {item.buildNumber ? `#${item.buildNumber}` : (item.why ?? "waiting")}
+            </text>
+          </box>
+        )
+      })}
+    </DialogFrame>
   )
 }
