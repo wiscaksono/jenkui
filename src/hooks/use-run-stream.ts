@@ -3,7 +3,7 @@ import { config } from "../config"
 import { JenkinsError, type JenkinsClient } from "../api/jenkins"
 import { appendLines, appendLog } from "../utils/log"
 import { mergeStages, seedStages } from "../utils/stages"
-import type { AnsiStyle, LogLine, Stage } from "../types"
+import type { AnsiStyle, LogLine, Stage, StageStatus } from "../types"
 
 const MAX_BACKOFF_MS = 15_000
 
@@ -25,12 +25,16 @@ export function useRunStream(
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [live, setLive] = useState(false)
+  // Final result of the streamed build, so callers don't have to infer it from
+  // a build list that may still be refreshing.
+  const [result, setResult] = useState<StageStatus | null>(null)
   const finished = useRef(false)
 
 
   useEffect(() => {
     if (!projectPath || buildNumber === undefined) {
       setLive(false)
+      setResult(null)
       return
     }
     let active = true
@@ -42,6 +46,7 @@ export function useRunStream(
     let stagesAvailable = true
     finished.current = false
     setLive(true)
+    setResult(null)
 
     setStages([])
     setLog([])
@@ -132,6 +137,7 @@ export function useRunStream(
         prev.map((stage) => (stage.status === "PENDING" ? { ...stage, status: "SKIPPED" as const } : stage)),
       )
       setLive(false)
+      setResult(buildState.result)
       if (!finished.current) {
         finished.current = true
         onFinished()
@@ -146,5 +152,5 @@ export function useRunStream(
     }
   }, [api, projectPath, buildNumber, reloadToken, onFinished])
 
-  return { stages, log, loading, error, warning, live }
+  return { stages, log, loading, error, warning, live, result }
 }

@@ -6,6 +6,7 @@ import { LayoutProvider } from "./config/layout"
 import { ThemeProvider } from "./config/theme"
 import { config, setActiveProfile } from "./config"
 import { parseArgs, USAGE } from "./cli"
+import { clearStatus } from "./utils/status"
 import pkg from "../package.json"
 
 const VERSION = pkg.version
@@ -70,11 +71,13 @@ renderer.keyInput.on("keypress", (key) => {
   if (key.name === "`") renderer.console.toggle()
 })
 
-// renderer.destroy() restores the screen but leaves OSC titles alone, so a
-// crash or Ctrl-C would leave a stale "jenkui | ..." in the tab bar. The app
-// clears the title on a normal quit; this covers every other exit path.
+// renderer.destroy() restores the screen but leaves OSC titles and program
+// status records behind, so a crash or Ctrl-C would keep a stale "jenkui | ..."
+// in the tab bar and a stuck status on the tab. The app clears both on a normal
+// quit; this covers every other exit path.
 process.on("exit", () => {
   process.stdout.write("\u001b]0;\u0007")
+  clearStatus()
 })
 
 createRoot(renderer).render(

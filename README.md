@@ -167,6 +167,15 @@ when the stages fit, they render as cards; below 80 columns secondary list
 columns drop, and below 65 the stage view switches to a compact list. Terminals
 smaller than 30x10 show a terminal-too-small message instead of a broken layout.
 
+## Terminal integration
+
+The tab title follows what you are looking at (`jenkui | SINARMAS › web-polaris-ts`,
+plus the build state while streaming) and resets on quit. In terminals that speak
+OSC 7501 (Rex, Ghostty) jenkui also reports its program status, so an unfocused tab
+shows when a build is working, waiting on a confirmation, finished, or failed.
+Nothing is sent to other terminals; `JENKUI_STATUS=1` forces it on and
+`JENKUI_STATUS=0` turns it off.
+
 ## How it maps to Jenkins
 
 Jenkins **views** become organizations (`POLARIS`, `ALCOR`, …). Each job in a view

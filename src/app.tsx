@@ -18,6 +18,7 @@ import { useQueue } from "./hooks/use-queue"
 import { useBuildActions } from "./hooks/use-build-actions"
 import { createJenkinsClient } from "./api/jenkins"
 import { copyToClipboard, openInBrowser } from "./utils/host"
+import { clearStatus, deriveStatus, encodeStatus, programStatusEnabled } from "./utils/status"
 import { DeployScreen } from "./screens/deploy-screen"
 import { OrgScreen } from "./screens/org-screen"
 import { ProjectScreen } from "./screens/project-screen"
@@ -128,6 +129,35 @@ export function App() {
   useEffect(() => {
     renderer.setTerminalTitle(title)
   }, [renderer, title])
+
+  // OSC 7501 tells the terminal what the app is doing, so an unfocused tab can
+  // show it. Repeats are skipped: progress only moves when a stage flips.
+  const lastStatus = useRef<string | null>(null)
+  const status = deriveStatus({
+    confirm: confirm?.label,
+    params: params ? `Build parameters for ${params.projectName}` : undefined,
+    busy,
+    notice: notice?.text,
+    view,
+    projectName: project?.name,
+    deploymentName: deployment?.name,
+    deploymentStatus: deployment?.status,
+    result: run.result,
+    live: run.live,
+    progress:
+      run.stages.length > 0
+        ? (run.stages.filter((stage) => stage.status !== "PENDING").length / run.stages.length) * 100
+        : undefined,
+    loading,
+    error,
+  })
+
+  useEffect(() => {
+    const sequence = encodeStatus(status)
+    if (sequence === lastStatus.current) return
+    lastStatus.current = sequence
+    if (programStatusEnabled()) process.stdout.write(sequence)
+  }, [status.state, status.kind, status.msg, status.progress])
 
   // Async callbacks read these refs so a long queue poll never acts on a stale
   // selection, organization tree, or profile.
@@ -248,6 +278,7 @@ export function App() {
   useKeyboard((key) => {
     if (layout.tooSmall) {
       if (key.name === "q") {
+        clearStatus()
         renderer.setTerminalTitle("")
         renderer.destroy()
       }
@@ -257,6 +288,7 @@ export function App() {
     if (!action) return
     switch (action.type) {
       case "quit":
+        clearStatus()
         renderer.setTerminalTitle("")
         renderer.destroy()
         return
