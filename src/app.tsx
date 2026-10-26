@@ -28,7 +28,7 @@ import { config, getActiveProfile, getActiveProfileName, profileNames, setActive
 import { useLayout } from "./config/layout"
 import { useTheme } from "./config/theme"
 import type { Deployment } from "./types"
-import { VIEW_META, breadcrumbFor } from "./state/views"
+import { VIEW_META, breadcrumbFor, titleFor } from "./state/views"
 import { resolveSelection } from "./hooks/resolve-selection"
 
 const NO_DEPLOYMENTS: Record<string, Deployment[]> = {}
@@ -110,6 +110,24 @@ export function App() {
     reloadToken,
     onBuildFinished,
   )
+
+  // Rex and most terminals fall back to the process name ("Bun", because the
+  // bin is a bun shebang script) when no program sets a title. Spinner ticks and
+  // stage durations stay out of it: hosts redraw their tab bar on every change.
+  const title = titleFor({
+    view,
+    orgName: org?.name,
+    projectName: project?.name,
+    deploymentName: deployment?.name,
+    status: deployment?.status,
+    live: run.live,
+    profile: activeProfile,
+    profileCount: profiles.length,
+  })
+
+  useEffect(() => {
+    renderer.setTerminalTitle(title)
+  }, [renderer, title])
 
   // Async callbacks read these refs so a long queue poll never acts on a stale
   // selection, organization tree, or profile.
@@ -229,13 +247,17 @@ export function App() {
 
   useKeyboard((key) => {
     if (layout.tooSmall) {
-      if (key.name === "q") renderer.destroy()
+      if (key.name === "q") {
+        renderer.setTerminalTitle("")
+        renderer.destroy()
+      }
       return
     }
     const action = keyToAction(state as AppState, key.name)
     if (!action) return
     switch (action.type) {
       case "quit":
+        renderer.setTerminalTitle("")
         renderer.destroy()
         return
       case "refresh":

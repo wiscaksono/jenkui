@@ -70,6 +70,13 @@ renderer.keyInput.on("keypress", (key) => {
   if (key.name === "`") renderer.console.toggle()
 })
 
+// renderer.destroy() restores the screen but leaves OSC titles alone, so a
+// crash or Ctrl-C would leave a stale "jenkui | ..." in the tab bar. The app
+// clears the title on a normal quit; this covers every other exit path.
+process.on("exit", () => {
+  process.stdout.write("\u001b]0;\u0007")
+})
+
 createRoot(renderer).render(
   <ThemeProvider>
     <LayoutProvider>
