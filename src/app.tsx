@@ -133,31 +133,50 @@ export function App() {
   // OSC 7501 tells the terminal what the app is doing, so an unfocused tab can
   // show it. Repeats are skipped: progress only moves when a stage flips.
   const lastStatus = useRef<string | null>(null)
-  const status = deriveStatus({
-    confirm: confirm?.label,
-    params: params ? `Build parameters for ${params.projectName}` : undefined,
-    busy,
-    notice: notice?.text,
-    view,
-    projectName: project?.name,
-    deploymentName: deployment?.name,
-    deploymentStatus: deployment?.status,
-    result: run.result,
-    live: run.live,
-    progress:
-      run.stages.length > 0
-        ? (run.stages.filter((stage) => stage.status !== "PENDING").length / run.stages.length) * 100
-        : undefined,
-    loading,
-    error,
-  })
+  const stageProgress =
+    run.stages.length > 0
+      ? (run.stages.filter((stage) => stage.status !== "PENDING").length / run.stages.length) * 100
+      : undefined
+  const status = useMemo(
+    () =>
+      deriveStatus({
+        confirm: confirm?.label,
+        params: params ? `Build parameters for ${params.projectName}` : undefined,
+        busy,
+        notice: notice?.text,
+        view,
+        projectName: project?.name,
+        deploymentName: deployment?.name,
+        deploymentStatus: deployment?.status,
+        result: run.result,
+        live: run.live,
+        progress: stageProgress,
+        loading,
+        error,
+      }),
+    [
+      confirm?.label,
+      params,
+      busy,
+      notice?.text,
+      view,
+      project?.name,
+      deployment?.name,
+      deployment?.status,
+      run.result,
+      run.live,
+      stageProgress,
+      loading,
+      error,
+    ],
+  )
 
   useEffect(() => {
     const sequence = encodeStatus(status)
     if (sequence === lastStatus.current) return
     lastStatus.current = sequence
     if (programStatusEnabled()) process.stdout.write(sequence)
-  }, [status.state, status.kind, status.msg, status.progress])
+  }, [status])
 
   // Async callbacks read these refs so a long queue poll never acts on a stale
   // selection, organization tree, or profile.

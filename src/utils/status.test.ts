@@ -30,7 +30,10 @@ describe("encodeStatus", () => {
     const sequence = encodeStatus({ state: "error", msg: "build\u0007 failed\nline two" })
     const msg = decode(sequence, "msg")
     expect(msg).toBe("build failed line two")
-    expect(/[\u0000-\u001f\u007f-\u009f]/.test(msg)).toBe(false)
+    for (const char of msg) {
+      const code = char.codePointAt(0) ?? 0
+      expect(code < 0x20 || (code >= 0x7f && code <= 0x9f)).toBe(false)
+    }
   })
 
   test("a long message is shortened under the sequence cap", () => {

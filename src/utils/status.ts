@@ -38,10 +38,18 @@ export function programStatusEnabled(env: Env = process.env): boolean {
 
 // Control characters would make the terminal drop the whole report, and they
 // can never be meaningful in a one-line message.
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g
+function isControl(code: number): boolean {
+  return code < 0x20 || (code >= 0x7f && code <= 0x9f)
+}
+
+function sanitize(text: string): string {
+  let out = ""
+  for (const char of text) out += isControl(char.codePointAt(0) ?? 0) ? " " : char
+  return out.replace(/\s+/g, " ").trim()
+}
 
 function encodeText(text: string): string {
-  let clean = text.replace(CONTROL, " ").replace(/\s+/g, " ").trim().slice(0, MAX_MSG_BYTES)
+  let clean = sanitize(text).slice(0, MAX_MSG_BYTES)
   // The cap is in bytes, so a multibyte message needs trimming after slicing.
   while (Buffer.byteLength(clean, "utf8") > MAX_MSG_BYTES) clean = clean.slice(0, -1)
   return Buffer.from(clean, "utf8").toString("base64")
