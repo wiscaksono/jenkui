@@ -3,7 +3,8 @@ import type { ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../config/theme"
 import { useLayout } from "../config/layout"
 import { formatDuration } from "../utils/format"
-import { useSpinner } from "../hooks/use-spinner"
+import { useSpinner, useSpinnerTick } from "../hooks/use-spinner"
+import { progressBar, stageRatio } from "../utils/progress"
 import { highlightSpans, spansToString } from "../utils/log"
 import type { AnsiSpan, Deployment, LogLine, Stage, StageStatus } from "../types"
 import type { ThemeColor } from "../config/themes"
@@ -35,8 +36,59 @@ function RunningSpinner({ color }: { color: ThemeColor }) {
   return <text fg={color}>{frame}</text>
 }
 
-const StageCard = memo(function StageCard({ stage, max }: { stage: Stage; max: number }) {
+/** One cell of wave every 200ms reads as movement without flickering. */
+const WAVE_TICKS = 2
+
+/**
+ * Solid up to the progress point, full braille for what is left, with the head
+ * cell pulsing in the fill color while the stage runs. A null ratio means the
+ * length is unknown, so the whole row scrolls the wave instead.
+ */
+function StageBar({
+  ratio,
+  width,
+  color,
+  animate,
+}: {
+  ratio: number | null
+  width: number
+  color: ThemeColor
+  animate: boolean
+}) {
+  const { colors } = useTheme()
+  const tick = useSpinnerTick(animate)
+  const bar = progressBar(ratio, width, Math.floor(tick / WAVE_TICKS))
+  return (
+    <box style={{ flexDirection: "row" }}>
+      {bar.fill ? (
+        <text fg={color} wrapMode="none">
+          {bar.fill}
+        </text>
+      ) : null}
+      {bar.head ? (
+        <text fg={animate ? color : colors.faint} wrapMode="none">
+          {bar.head}
+        </text>
+      ) : null}
+      {bar.rail ? (
+        <text fg={colors.faint} wrapMode="none">
+          {bar.rail}
+        </text>
+      ) : null}
+    </box>
+  )
+}
+
+const StageCard = memo(function StageCard({ stage, barWidth }: { stage: Stage; barWidth: number }) {
   const { colors, statusColor } = useTheme()
+  const running = stage.status === "RUNNING"
+  // Finished stages are full and stages that never ran stay empty; only the
+  // running one needs a guessed ratio.
+  const ratio = running
+    ? stageRatio(stage.durationMs, stage.estimateMs)
+    : stage.status === "PENDING" || stage.status === "SKIPPED"
+      ? 0
+      : 1
   return (
     <box
       border
@@ -57,25 +109,8 @@ const StageCard = memo(function StageCard({ stage, max }: { stage: Stage; max: n
           <text fg={colors.muted}>{formatDuration(stage.durationMs)}</text>
         </box>
       </box>
-      <box style={{ flexDirection: "row", marginTop: 1 }}>
-        <box
-          style={{
-            flexGrow: Math.max(stage.durationMs, 1),
-            flexBasis: 0,
-            minWidth: 0,
-            height: 1,
-            backgroundColor: stage.status === "FAILURE" ? colors.failure : colors.accent,
-          }}
-        />
-        <box
-          style={{
-            flexGrow: Math.max(max - stage.durationMs, 0),
-            flexBasis: 0,
-            minWidth: 0,
-            height: 1,
-            backgroundColor: colors.selectionDim,
-          }}
-        />
+      <box style={{ height: 1, marginTop: 1 }}>
+        <StageBar ratio={ratio} width={barWidth} color={statusColor[stage.status]} animate={running} />
       </box>
     </box>
   )
@@ -107,6 +142,7 @@ const StageRow = memo(function StageRow({ stage }: { stage: Stage }) {
 
 const StageList = memo(function StageList({ stages }: { stages: Stage[] }) {
   const layout = useLayout()
+  const { colors } = useTheme()
   if (stages.length === 0) return null
   const rows = Math.min(stages.length, layout.short ? 3 : 5)
   return (
@@ -115,6 +151,9 @@ const StageList = memo(function StageList({ stages }: { stages: Stage[] }) {
       stickyStart="bottom"
       viewportCulling
       style={{ height: rows, flexShrink: 0 }}
+      scrollbarOptions={{
+        trackOptions: { backgroundColor: colors.background, foregroundColor: colors.faint },
+      }}
     >
       {stages.map((stage) => (
         <StageRow key={stage.name} stage={stage} />
@@ -177,7 +216,15 @@ const LogView = memo(function LogView({
         borderStyle: "rounded",
       }}
     >
-      <scrollbox ref={ref} stickyScroll stickyStart="bottom" style={{ flexGrow: 1, paddingX: 1 }}>
+      <scrollbox
+        ref={ref}
+        stickyScroll
+        stickyStart="bottom"
+        style={{ flexGrow: 1, paddingX: 1 }}
+        scrollbarOptions={{
+          trackOptions: { backgroundColor: colors.background, foregroundColor: colors.faint },
+        }}
+      >
         {lines.map((spans, index) => (
           <LogLineView key={index} spans={spans} query={query} />
         ))}
@@ -188,19 +235,23 @@ const LogView = memo(function LogView({
 
 export function RunScreen({ deployment, stages, log, query, logFocused, warning, live }: RunScreenProps) {
   const layout = useLayout()
-  const max = Math.max(...stages.map((stage) => stage.durationMs), 1)
   const badge = live ? (warning ? "  ● reconnecting " : "  ● live ") : ""
   const title = layout.narrow
     ? ` Console ${deployment.name}${badge} `
     : ` Console Output — ${deployment.name}${badge} `
   const useCards = layout.stageCards(stages.length) && !layout.short
+  // Cards share the row evenly; each one spends 4 columns on border + padding.
+  const barWidth = Math.max(
+    Math.floor((layout.width - (stages.length - 1)) / Math.max(stages.length, 1)) - 4,
+    4,
+  )
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       {useCards ? (
         <box style={{ flexDirection: "row", alignItems: "flex-start", gap: 1, flexShrink: 0 }}>
           {stages.map((stage) => (
-            <StageCard key={stage.name} stage={stage} max={max} />
+            <StageCard key={stage.name} stage={stage} barWidth={barWidth} />
           ))}
         </box>
       ) : (

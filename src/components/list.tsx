@@ -46,10 +46,11 @@ export function List({ items, selectedIndex, focused, onChange, onSubmit }: List
     <scrollbox
       ref={scrollRef}
       style={{ flexGrow: 1 }}
-      // OpenTUI scrollbars default to a fixed dark track/thumb that clashes with
-      // light terminals; derive both from the active palette instead.
+      // Paint the track with the page background so only the thumb shows.
+      // Left as a filled track, the system theme's ANSI bright black covers the
+      // whole column and reads as a thick stripe.
       scrollbarOptions={{
-        trackOptions: { backgroundColor: colors.selectionDim, foregroundColor: colors.faint },
+        trackOptions: { backgroundColor: colors.background, foregroundColor: colors.faint },
       }}
     >
       {items.map((item, index) => {

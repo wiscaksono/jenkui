@@ -34,6 +34,15 @@ describe("mergeStages", () => {
     const merged = mergeStages([stage("A", 1)], [stage("B", 1), stage("C", 1)])
     expect(merged.map((s) => s.name)).toEqual(["A", "B", "C"])
   })
+
+  test("keeps the previous build's estimate on a live stage", () => {
+    const merged = mergeStages([{ ...stage("build", 0, "PENDING"), estimateMs: 30_000 }], [
+      stage("build", 5_000, "RUNNING"),
+    ])
+    expect(merged[0]?.status).toBe("RUNNING")
+    expect(merged[0]?.durationMs).toBe(5_000)
+    expect(merged[0]?.estimateMs).toBe(30_000)
+  })
 })
 
 describe("seedStages", () => {
@@ -53,5 +62,19 @@ describe("seedStages", () => {
     expect(seeded).toHaveLength(1)
     expect(seeded[0]?.status).toBe("FAILURE")
     expect(seeded[0]?.durationMs).toBe(5000)
+  })
+
+  test("borrows the estimate for a stage that is already live", () => {
+    const existing = [stage("build", 5000, "RUNNING")]
+    const template = [{ ...stage("build", 0, "PENDING"), estimateMs: 30_000 }]
+    const seeded = seedStages(existing, template)
+    expect(seeded[0]?.estimateMs).toBe(30_000)
+    expect(seeded[0]?.status).toBe("RUNNING")
+  })
+
+  test("keeps an estimate that arrived earlier", () => {
+    const existing = [{ ...stage("build", 5000, "RUNNING"), estimateMs: 12_000 }]
+    const template = [{ ...stage("build", 0, "PENDING"), estimateMs: 30_000 }]
+    expect(seedStages(existing, template)[0]?.estimateMs).toBe(12_000)
   })
 })

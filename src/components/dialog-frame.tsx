@@ -77,7 +77,7 @@ export function DialogFrame({
             style={{ flexGrow: 1, minHeight: 0 }}
             viewportCulling
             scrollbarOptions={{
-              trackOptions: { backgroundColor: colors.selectionDim, foregroundColor: colors.faint },
+              trackOptions: { backgroundColor: colors.surface, foregroundColor: colors.faint },
             }}
           >
             {children}

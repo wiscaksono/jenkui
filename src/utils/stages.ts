@@ -7,7 +7,12 @@ import type { Stage } from "../types"
 export function mergeStages(previous: Stage[], incoming: Stage[]): Stage[] {
   const byName = new Map<string, Stage>()
   for (const stage of previous) byName.set(stage.name, stage)
-  for (const stage of incoming) byName.set(stage.name, stage)
+  for (const stage of incoming) {
+    const known = byName.get(stage.name)
+    // The estimate comes from the previous build, so a live poll that knows
+    // nothing about it must not drop it.
+    byName.set(stage.name, known?.estimateMs ? { ...stage, estimateMs: known.estimateMs } : stage)
+  }
 
   const ordered: Stage[] = []
   const seen = new Set<string>()
@@ -30,7 +35,17 @@ export function mergeStages(previous: Stage[], incoming: Stage[]): Stage[] {
 // already known. The template arrives later than the live stage fetch, so it
 // must never replace real statuses/durations with PENDING placeholders.
 export function seedStages(existing: Stage[], template: Stage[]): Stage[] {
-  const known = new Set(existing.map((s) => s.name))
-  const missing = template.filter((s) => !known.has(s.name))
-  return [...existing, ...missing]
+  const estimates = new Map<string, number>()
+  for (const stage of template) {
+    if (stage.estimateMs) estimates.set(stage.name, stage.estimateMs)
+  }
+  const known = new Set(existing.map((stage) => stage.name))
+  // The template may arrive after the first poll, so borrow its estimates for
+  // stages that are already live instead of only appending the missing ones.
+  const merged = existing.map((stage) => {
+    const estimate = estimates.get(stage.name)
+    return stage.estimateMs || !estimate ? stage : { ...stage, estimateMs: estimate }
+  })
+  const missing = template.filter((stage) => !known.has(stage.name))
+  return [...merged, ...missing]
 }

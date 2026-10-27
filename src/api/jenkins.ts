@@ -422,7 +422,8 @@ export function createJenkinsClient(profile: Profile, fetchImpl: typeof fetch = 
 
     // The stage API only reveals stages that have already started, so a running
     // build has no complete list. The most recent finished build of the same job
-    // provides the stage names as a template (status PENDING, duration 0).
+    // provides the stage names as a template (status PENDING, duration 0) plus
+    // the durations used to estimate progress while the new build runs.
     async fetchStageTemplate(jobPath: string, excludeBuild: number): Promise<Stage[]> {
       const data = await get<{ builds?: Array<{ number: number; building?: boolean }> }>(
         `/job/${jobPath}/api/json?tree=builds%5Bnumber,building%5D%7B0,${PAGE_SIZE}%7D`,
@@ -435,6 +436,9 @@ export function createJenkinsClient(profile: Profile, fetchImpl: typeof fetch = 
         durationMs: 0,
         status: "PENDING" as const,
         startedAt: "",
+        // Only a stage that finished successfully gives a usable estimate;
+        // aborted or failed stages stopped early.
+        estimateMs: stage.status === "SUCCESS" && stage.durationMs > 0 ? stage.durationMs : undefined,
       }))
     },
 

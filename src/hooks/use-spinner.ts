@@ -3,8 +3,8 @@ import { spinnerFrame } from "../utils/spinner"
 
 const INTERVAL_MS = 100
 
-// Animates only while `active`, so idle screens do not keep a timer running.
-export function useSpinner(active: boolean): string {
+// Raw tick for callers that animate more than one glyph (e.g. the stage bars).
+export function useSpinnerTick(active: boolean): number {
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -13,5 +13,10 @@ export function useSpinner(active: boolean): string {
     return () => clearInterval(timer)
   }, [active])
 
-  return spinnerFrame(tick)
+  return tick
+}
+
+// Animates only while `active`, so idle screens do not keep a timer running.
+export function useSpinner(active: boolean): string {
+  return spinnerFrame(useSpinnerTick(active))
 }

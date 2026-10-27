@@ -13,6 +13,8 @@ export type Stage = {
   durationMs: number
   status: StageStatus
   startedAt: string
+  /** How long this stage took in the previous build, used to guess its progress. */
+  estimateMs?: number
 }
 
 export type Deployment = {
